@@ -154,7 +154,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="EOCD.cpp" />
+    <ClCompile Include="Exceptions.cpp" />
     <ClCompile Include="FileCompression.cpp" />
+    <ClCompile Include="ZipFile.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="EOCD.h" />
+    <ClInclude Include="Exceptions.h" />
+    <ClInclude Include="ZipFile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
