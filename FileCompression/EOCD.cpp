@@ -2,47 +2,41 @@
 #include "EOCD.h"
 #include "Exceptions.h"
 
-void EOCD::CreateEOCD(char* buffer, ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
-    short number_of_this_disk, short number_of_disk_with_start_of_central_directory,
+EOCD::EOCD(ZipFile::Fields::version_needed_to_extract version_needed_to_extract, short number_of_this_disk,
+    short number_of_disk_with_start_of_central_directory,
     short total_number_of_entries_in_the_central_directory_on_this_disk,
     short total_number_of_entries_in_the_central_directory, int size_of_the_central_directory,
-    int offset_of_start_of_central_directory, short zip_file_comment_length, char* zip_file_comment)
+    int offset_of_start_of_central_directory, short zip_file_comment_length, const char* zip_file_comment) :
+    version_needed_to_extract(version_needed_to_extract), number_of_this_disk(number_of_this_disk),
+    number_of_disk_with_start_of_central_directory(number_of_disk_with_start_of_central_directory),
+    total_number_of_entries_in_the_central_directory_on_this_disk(
+        total_number_of_entries_in_the_central_directory_on_this_disk),
+    total_number_of_entries_in_the_central_directory(total_number_of_entries_in_the_central_directory),
+    size_of_the_central_directory(size_of_the_central_directory),
+    offset_of_start_of_central_directory(offset_of_start_of_central_directory),
+    zip_file_comment_length(zip_file_comment_length), zip_file_comment(zip_file_comment)
 {
-    // Signature
-    memcpy(buffer, &signature, sizeof (int));
-    buffer += sizeof(int);
+}
 
-    // Number of this disk
-    memcpy(buffer, &number_of_this_disk, sizeof (short));
-    buffer += sizeof(short);
+EOCD::~EOCD()
+{
+    delete[] zip_file_comment;
+}
 
-    // Disk where CD starts
-    memcpy(buffer, &number_of_disk_with_start_of_central_directory, sizeof (short));
+char* EOCD::to_bytes() const
+{
+    //
+    char* bytes = new char[22 + zip_file_comment_length];
 
-    // Number of entries in the CD on this disk
-    memcpy(buffer, &total_number_of_entries_in_the_central_directory_on_this_disk, sizeof (short));
-    buffer += sizeof(short);
+    memcpy(bytes, &signature, 4);
+    memcpy(bytes + 4, &number_of_this_disk, 2);
+    memcpy(bytes + 6, &number_of_disk_with_start_of_central_directory, 2);
+    memcpy(bytes + 8, &total_number_of_entries_in_the_central_directory_on_this_disk, 2);
+    memcpy(bytes + 10, &total_number_of_entries_in_the_central_directory, 2);
+    memcpy(bytes + 12, &size_of_the_central_directory, 4);
+    memcpy(bytes + 16, &offset_of_start_of_central_directory, 4);
+    memcpy(bytes + 20, &zip_file_comment_length, 2);
+    memcpy(bytes + 22, zip_file_comment, zip_file_comment_length);
 
-    // Total number of entries in the CD
-    memcpy(buffer, &total_number_of_entries_in_the_central_directory, sizeof (short));
-    buffer += sizeof(short);
-
-    // Size of the CD
-    memcpy(buffer, &size_of_the_central_directory, sizeof (int));
-    buffer += sizeof(int);
-
-    // Offset of the CD
-    memcpy(buffer, &offset_of_start_of_central_directory, sizeof (int));
-    buffer += sizeof(int);
-
-    // Zip file comment length
-    memcpy(buffer, &zip_file_comment_length, sizeof (short));
-    buffer += sizeof(short);
-
-    // Zip file comment
-    if (zip_file_comment_length > 0)
-    {
-        memcpy(buffer, zip_file_comment, zip_file_comment_length);
-        buffer += zip_file_comment_length * sizeof(char);
-    }
+    return bytes;
 }
