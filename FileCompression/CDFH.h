@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "LFH.h"
 #include "ZipFile.h"
 
 /**
@@ -39,6 +40,9 @@ public:
                                   short internal_file_attributes = 0, int external_file_attributes = 0,
                                   int relative_offset_of_local_header = 0, const char* file_name = nullptr,
                                   const char* extra_field = nullptr, const char* file_comment = nullptr);
+
+    explicit CDFH(const LFH& lfh, short file_comment_length = 0, short disk_number_start = ZipFile::disk_number, short internal_file_attributes = 0, int external_file_attributes = 0,
+                  int relative_offset_of_local_header = 0, const char* file_comment = nullptr);
 
     char* to_bytes() const;
 

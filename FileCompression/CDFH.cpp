@@ -20,6 +20,22 @@ CDFH::CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
 {
 }
 
+CDFH::CDFH(const LFH& lfh, short file_comment_length, short disk_number_start, short internal_file_attributes,
+    int external_file_attributes, int relative_offset_of_local_header, const char* file_comment) :
+    version_needed_to_extract(lfh.version_needed_to_extract), general_purpose_bit_flag(lfh.general_purpose_bit_flag),
+    compression_method(lfh.compression_method), last_mod_file_time(lfh.last_mod_file_time),
+    last_mod_file_date(lfh.last_mod_file_date), crc32(lfh.crc32), compressed_size(lfh.compressed_size),
+    uncompressed_size(lfh.uncompressed_size), file_name_length(lfh.file_name_length),
+    extra_field_length(lfh.extra_field_length), file_comment_length(file_comment_length),
+    disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
+    external_file_attributes(external_file_attributes),
+    relative_offset_of_local_header(relative_offset_of_local_header), file_name(lfh.file_name),
+    extra_field(lfh.extra_field), file_comment(file_comment),
+    byte_size(46 + file_name_length + extra_field_length + file_comment_length)
+{
+    
+}
+
 char* CDFH::to_bytes() const
 {
     char* buffer = new char[byte_size];
