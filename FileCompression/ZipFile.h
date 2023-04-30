@@ -1,13 +1,15 @@
 ﻿#pragma once
+#include <cstdint>
 
 class ZipFile
 {
 public:
-    static constexpr int max_supported_version = 45;
+    static constexpr int current_version = 20;
+    static constexpr int disk_number = 0;
     
     struct Fields
     {
-        enum version_made_by
+        enum class version_made_by : uint16_t
         {
             MS_DOS = 0,
             Amiga = 1,
@@ -32,7 +34,7 @@ public:
             Unknown = 20
         };
 
-        enum version_needed_to_extract
+        enum class version_needed_to_extract : uint16_t
         {
             v1_0 = 0,
             v1_1 = 1,
@@ -90,5 +92,51 @@ public:
             v6_45 = 105,
             v6_46 = 106,
     };
+
+        enum class compression_method : uint16_t
+        {
+            Stored = 0,
+            Shrunk = 1,
+            Reduced_1 = 2,
+            Reduced_2 = 3,
+            Reduced_3 = 4,
+            Reduced_4 = 5,
+            Imploded = 6,
+            Reserved_1 = 7,
+            Deflated = 8,
+            Enhanced_Deflated = 9,
+            PKWare_DCL_Implode = 10,
+            Reserved_2 = 11,
+            BZIP2 = 12,
+            Reserved_3 = 13,
+            LZMA = 14,
+            Reserved_4 = 15,
+            Reserved_5 = 16,
+            Reserved_6 = 17,
+            IBM_TERSE = 18,
+            IBM_LZ77_z = 19,
+            MP3 = 96,
+            XZ = 97,
+            JPEG = 98,
+            WavPack = 99,
+            PPMD = 98,
+            AE_x = 99,
+            Unknown = 100
+        };
+
+        enum class general_purpose_bit_flag : uint16_t
+        {
+            Encrypted = 0x0001,
+            Compression_option_1 = 0x0002,
+            Compression_option_2 = 0x0004,
+            Data_descriptor = 0x0008,
+            Enhanced_deflation = 0x0010,
+            Compressed_patched_data = 0x0020,
+            Strong_encryption = 0x0040,
+            UTF_8 = 0x0800,
+            Mask_header_values = 0x2000,
+            Reserved = 0x4000,
+            Reserved_2 = 0x8000
+        };
     };
 };
