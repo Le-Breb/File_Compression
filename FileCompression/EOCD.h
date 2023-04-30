@@ -29,7 +29,11 @@ public:
         short zip_file_comment_length = 0,
         const char* zip_file_comment = nullptr);
 
+    static EOCD* parse(const char* bytes, const int& offset);
+
     ~EOCD();
 
     char* to_bytes() const;
+    
+    friend std::ostream& operator<<(std::ostream& os, const EOCD& eocd);
 };

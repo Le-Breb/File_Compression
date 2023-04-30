@@ -7,8 +7,10 @@
 
 int main(int argc, char* argv[])
 {
-    ZipFile::write_empty_zip_file("a.zip");
-    
+    ZipFile zip_file;
+    zip_file.add_file("someData.txt");
+    zip_file.write("someData.zip");
+    ZipFile zip_file2("someData.zip");
     
     return 0;
 }

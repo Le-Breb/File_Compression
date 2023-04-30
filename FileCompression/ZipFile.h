@@ -153,4 +153,8 @@ public:
     void add_file(const char* filename);
 
     void write(const char* filename);
+
+    ZipFile();
+    
+    ZipFile(const char* filename);
 };

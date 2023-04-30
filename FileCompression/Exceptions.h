@@ -16,3 +16,29 @@ public:
             ". The maximum supported version is: " + std::to_string(ZipFile::current_version) + ".").c_str());
     }
 };
+class invalid_file final : public std::exception
+{
+
+public:
+    enum class Reason
+    {
+        NO_EOCD
+    };
+    explicit invalid_file(const Reason reason) : reason_(reason) {}
+    char * what () {
+        return const_cast<char*>(("Invalid file. Reason: " + get_reason()).c_str());
+    }
+
+    std::string get_reason() const
+    {
+        switch (reason_)
+        {
+        case Reason::NO_EOCD:
+            return "The file does not contain an EOCD record.";
+        default:
+            return "Unknown reason.";
+        }
+    }
+private:
+    Reason reason_;
+};
