@@ -13,6 +13,6 @@ public:
     explicit unsupported_zip_version(const unsigned unsupported_version) : unsupported_version_(unsupported_version_) {}
     char * what () {
         return const_cast<char*>(("Unsupported zip version. You used version: " + std::to_string(unsupported_version_) +
-            ". The maximum supported version is: " + std::to_string(ZipFile::max_supported_version) + ".").c_str());
+            ". The maximum supported version is: " + std::to_string(ZipFile::current_version) + ".").c_str());
     }
 };
