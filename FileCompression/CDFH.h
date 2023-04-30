@@ -1,7 +1,10 @@
 ﻿#pragma once
 #include "ZipFile.h"
 
-class CD
+/**
+ * \brief Central directory file header
+ */
+class CDFH
 {
 public:
     static constexpr char signature[] = "PK\1\2";
@@ -24,8 +27,9 @@ public:
     const char* file_name;
     const char* extra_field;
     const char* file_comment;
+    int byte_size;
 
-    CD(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
+    CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
                                   ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
                                   ZipFile::Fields::compression_method compression_method =
                                       ZipFile::Fields::compression_method::Stored, short last_mod_file_time = 0,
@@ -38,5 +42,5 @@ public:
 
     char* to_bytes() const;
 
-    ~CD();
+    ~CDFH();
 };

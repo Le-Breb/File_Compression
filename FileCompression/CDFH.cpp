@@ -1,9 +1,9 @@
-﻿#include "CD.h"
+﻿#include "CDFH.h"
 
 #include <cstring>
 #include <exception>
 
-CD::CD(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
+CDFH::CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
     ZipFile::Fields::compression_method compression_method, short last_mod_file_time, short last_mod_file_date,
     int crc32, int compressed_size, int uncompressed_size, short file_name_length, short extra_field_length,
@@ -16,13 +16,13 @@ CD::CD(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
     file_comment_length(file_comment_length), disk_number_start(disk_number_start),
     internal_file_attributes(internal_file_attributes), external_file_attributes(external_file_attributes),
     relative_offset_of_local_header(relative_offset_of_local_header), file_name(file_name), extra_field(extra_field),
-    file_comment(file_comment)
+    file_comment(file_comment), byte_size(46 + file_name_length + extra_field_length + file_comment_length)
 {
 }
 
-char* CD::to_bytes() const
+char* CDFH::to_bytes() const
 {
-    char* buffer = new char[46 + file_name_length + extra_field_length + file_comment_length];
+    char* buffer = new char[byte_size];
     
     memcpy(buffer, signature, 4);
     memcpy(buffer + 4, &version_needed_to_extract, 2);
@@ -47,7 +47,7 @@ char* CD::to_bytes() const
     return buffer;
 }
 
-CD::~CD()
+CDFH::~CDFH()
 {
     delete[] file_name;
     delete[] extra_field;
