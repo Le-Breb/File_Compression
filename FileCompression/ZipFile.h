@@ -1,11 +1,16 @@
 ﻿#pragma once
 #include <cstdint>
+#include <vector>
+
+class File;
 
 class ZipFile
 {
 public:
     static constexpr int current_version = 20;
     static constexpr int disk_number = 0;
+
+    std::vector<File*> files;
     
     struct Fields
     {
@@ -115,10 +120,10 @@ public:
             Reserved_6 = 17,
             IBM_TERSE = 18,
             IBM_LZ77_z = 19,
-            MP3 = 96,
-            XZ = 97,
-            JPEG = 98,
-            WavPack = 99,
+            MP3 = 94,
+            XZ = 95,
+            JPEG = 96,
+            WavPack = 97,
             PPMD = 98,
             AE_x = 99,
             Unknown = 100
@@ -136,9 +141,16 @@ public:
             UTF_8 = 0x0800,
             Mask_header_values = 0x2000,
             Reserved = 0x4000,
-            Reserved_2 = 0x8000
+            Reserved_2 = 0x8000,
+            None = 0x0000
         };
     };
 
+    ~ZipFile();
+
     static void write_empty_zip_file(const char* filename);
+
+    void add_file(const char* filename);
+
+    void write(const char* filename);
 };
