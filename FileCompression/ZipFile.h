@@ -139,4 +139,6 @@ public:
             Reserved_2 = 0x8000
         };
     };
+
+    static void write_empty_zip_file(const char* filename);
 };
