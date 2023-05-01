@@ -19,8 +19,8 @@ public:
     int uncompressed_size;
     short file_name_length;
     short extra_field_length;
-    const char* file_name;
-    const char* extra_field;
+    char* file_name;
+    char* extra_field;
     int byte_size;
 
     LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
@@ -28,7 +28,9 @@ public:
         ZipFile::Fields::compression_method compression_method = ZipFile::Fields::compression_method::Stored,
         short last_mod_file_time = 0, short last_mod_file_date = 0, int crc32 = 0, int compressed_size = 0,
         int uncompressed_size = 0, short file_name_length = 0, short extra_field_length = 0,
-        const char* file_name = nullptr, const char* extra_field = nullptr);
+        char* file_name = nullptr, char* extra_field = nullptr);
+
+    explicit LFH(std::ifstream& in, int offset);
 
     ~LFH();
 

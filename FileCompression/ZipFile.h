@@ -11,6 +11,8 @@ class ZipFile
 {
 private:
     EOCD* find_eocd(std::ifstream& in);
+    void register_files(std::ifstream& in, const int& offset_of_start_of_central_directory, const int& central_directory_size);
+    void list_files();
 public:
     static constexpr int current_version = 20;
     static constexpr int disk_number = 0;

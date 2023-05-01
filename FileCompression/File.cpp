@@ -9,6 +9,31 @@ File::~File()
     delete[] compressed_data;
 }
 
+File::File(std::ifstream& in, const CDFH& cdfh)
+{
+    version_needed_to_extract = cdfh.version_needed_to_extract;
+    general_purpose_bit_flag = cdfh.general_purpose_bit_flag;
+    compression_method = cdfh.compression_method;
+    last_mod_file_time = cdfh.last_mod_file_time;
+    last_mod_file_date = cdfh.last_mod_file_date;
+    crc32 = cdfh.crc32;
+    compressed_size = cdfh.compressed_size;
+    uncompressed_size = cdfh.uncompressed_size;
+    file_name_length = cdfh.file_name_length;
+    extra_field_length = cdfh.extra_field_length;
+    file_comment_length = cdfh.file_comment_length;
+    disk_number_start = cdfh.disk_number_start;
+    internal_file_attributes = cdfh.internal_file_attributes;
+    external_file_attributes = cdfh.external_file_attributes;
+    file_name = cdfh.file_name;
+    extra_field = cdfh.extra_field;
+    file_comment = cdfh.file_comment;
+
+    LFH lfh = LFH(in, cdfh.relative_offset_of_local_header);
+    compressed_data = new char[lfh.compressed_size];
+    in.read(compressed_data, compressed_size);
+}
+
 File::File(const char* path, ZipFile::Fields::compression_method compression_method)
 {
     std::ifstream in(path);

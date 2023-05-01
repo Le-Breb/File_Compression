@@ -21,25 +21,16 @@ EOCD::EOCD(short number_of_this_disk,
 {
 }
 
-EOCD* EOCD::parse(const char* bytes, const int& offset)
+EOCD::EOCD(const char* bytes)
 {
-    bytes += offset;
-
-    const short number_of_this_disk = *(bytes + 4);
-    const short number_of_disk_with_start_of_central_directory = *(bytes + 6);
-    const short total_number_of_entries_in_the_central_directory_on_this_disk = *(bytes + 8);
-    const short total_number_of_entries_in_the_central_directory = *(bytes + 10);
-    const int size_of_the_central_directory = *(bytes + 12);
-    const int offset_of_start_of_central_directory = *(bytes + 16);
-    const short zip_file_comment_length = *(bytes + 20);
-    const char* zip_file_comment = zip_file_comment_length > 0 ? bytes + 22 : nullptr;
-
-    EOCD* eocd = new EOCD(number_of_this_disk, number_of_disk_with_start_of_central_directory,
-        total_number_of_entries_in_the_central_directory_on_this_disk,
-        total_number_of_entries_in_the_central_directory, size_of_the_central_directory,
-        offset_of_start_of_central_directory, zip_file_comment_length, zip_file_comment);
-
-    return eocd;
+    number_of_this_disk = *(bytes + 4);
+    number_of_disk_with_start_of_central_directory = *(bytes + 6);
+    total_number_of_entries_in_the_central_directory_on_this_disk = *(bytes + 8);
+    total_number_of_entries_in_the_central_directory = *(bytes + 10);
+    size_of_the_central_directory = *(bytes + 12);
+    offset_of_start_of_central_directory = *(bytes + 16);
+    zip_file_comment_length = *(bytes + 20);
+    zip_file_comment = zip_file_comment_length > 0 ? bytes + 22 : nullptr;
 }
 
 EOCD::~EOCD()
@@ -70,6 +61,8 @@ char* EOCD::to_bytes() const
 
 std::ostream& operator<<(std::ostream& os, const EOCD& eocd)
 {
-    os <<std::dec<< "EOCD: " << "number_of_this_disk: " << eocd.number_of_this_disk << ", number_of_disk_with_start_of_central_directory: " << eocd.number_of_disk_with_start_of_central_directory << ", total_number_of_entries_in_the_central_directory_on_this_disk: " << eocd.total_number_of_entries_in_the_central_directory_on_this_disk << ", total_number_of_entries_in_the_central_directory: " << eocd.total_number_of_entries_in_the_central_directory << ", size_of_the_central_directory: " << eocd.size_of_the_central_directory << ", offset_of_start_of_central_directory: " << eocd.offset_of_start_of_central_directory << ", zip_file_comment_length: " << eocd.zip_file_comment_length << ", zip_file_comment: " << eocd.zip_file_comment;
+    os <<std::dec<< "EOCD: " << "number_of_this_disk: " << eocd.number_of_this_disk << ", number_of_disk_with_start_of_central_directory: " << eocd.number_of_disk_with_start_of_central_directory << ", total_number_of_entries_in_the_central_directory_on_this_disk: " << eocd.total_number_of_entries_in_the_central_directory_on_this_disk << ", total_number_of_entries_in_the_central_directory: " << eocd.total_number_of_entries_in_the_central_directory << ", size_of_the_central_directory: " << eocd.size_of_the_central_directory << ", offset_of_start_of_central_directory: " << eocd.offset_of_start_of_central_directory << ", zip_file_comment_length: " << eocd.zip_file_comment_length;
+    if (eocd.zip_file_comment_length > 0)
+        os << ", zip_file_comment: " << eocd.zip_file_comment;
     return os;
 }

@@ -7,7 +7,7 @@ LFH::LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
          ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
          ZipFile::Fields::compression_method compression_method, short last_mod_file_time, short last_mod_file_date,
          int crc32, int compressed_size, int uncompressed_size, short file_name_length, short extra_field_length,
-         const char* file_name, const char* extra_field) : version_needed_to_extract(version_needed_to_extract),
+         char* file_name, char* extra_field) : version_needed_to_extract(version_needed_to_extract),
                                                            general_purpose_bit_flag(general_purpose_bit_flag),
                                                            compression_method(compression_method),
                                                            last_mod_file_time(last_mod_file_time),
@@ -19,6 +19,32 @@ LFH::LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
                                                            extra_field(extra_field),
                                                            byte_size(30 + file_name_length + extra_field_length)
 {
+}
+
+LFH::LFH(std::ifstream& in, int offset)
+{
+    in.seekg(offset);
+    int signature_check;
+    in.read(reinterpret_cast<char*>(&signature_check), 4);
+    if (signature_check != signature)
+        throw std::exception("Invalid signature");
+    in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
+    in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
+    in.read(reinterpret_cast<char*>(&compression_method), 2);
+    in.read(reinterpret_cast<char*>(&last_mod_file_time), 2);
+    in.read(reinterpret_cast<char*>(&last_mod_file_date), 2);
+    in.read(reinterpret_cast<char*>(&crc32), 4);
+    in.read(reinterpret_cast<char*>(&compressed_size), 4);
+    in.read(reinterpret_cast<char*>(&uncompressed_size), 4);
+    in.read(reinterpret_cast<char*>(&file_name_length), 2);
+    in.read(reinterpret_cast<char*>(&extra_field_length), 2);
+    file_name = new char[file_name_length + 1];
+    in.read(file_name, file_name_length);
+    file_name[file_name_length] = '\0';
+    extra_field = new char[extra_field_length + 1];
+    in.read(extra_field, extra_field_length);
+    extra_field[extra_field_length] = '\0';
+    byte_size = 30 + file_name_length + extra_field_length;
 }
 
 LFH::~LFH()

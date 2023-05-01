@@ -8,7 +8,7 @@ CDFH::CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
     ZipFile::Fields::compression_method compression_method, short last_mod_file_time, short last_mod_file_date,
     int crc32, int compressed_size, int uncompressed_size, short file_name_length, short extra_field_length,
     short file_comment_length, short disk_number_start, short internal_file_attributes, int external_file_attributes,
-    int relative_offset_of_local_header, const char* file_name, const char* extra_field, const char* file_comment) :
+    int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
     version_needed_to_extract(version_needed_to_extract), general_purpose_bit_flag(general_purpose_bit_flag),
     compression_method(compression_method), last_mod_file_time(last_mod_file_time),
     last_mod_file_date(last_mod_file_date), crc32(crc32), compressed_size(compressed_size),
@@ -21,7 +21,7 @@ CDFH::CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
 }
 
 CDFH::CDFH(const LFH& lfh, short file_comment_length, short disk_number_start, short internal_file_attributes,
-    int external_file_attributes, int relative_offset_of_local_header, const char* file_comment) :
+    int external_file_attributes, int relative_offset_of_local_header, char* file_comment) :
     version_needed_to_extract(lfh.version_needed_to_extract), general_purpose_bit_flag(lfh.general_purpose_bit_flag),
     compression_method(lfh.compression_method), last_mod_file_time(lfh.last_mod_file_time),
     last_mod_file_date(lfh.last_mod_file_date), crc32(lfh.crc32), compressed_size(lfh.compressed_size),
@@ -36,11 +36,44 @@ CDFH::CDFH(const LFH& lfh, short file_comment_length, short disk_number_start, s
     
 }
 
+CDFH::CDFH(std::ifstream& in, int offset)
+{
+    in.seekg(offset);
+    int signature_check = 0;
+    in.read(reinterpret_cast<char*>(&signature_check), 4);
+    if (signature_check != signature)
+        throw std::exception("CDFH signature not found");
+    in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
+    in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
+    in.read(reinterpret_cast<char*>(&compression_method), 2);
+    in.read(reinterpret_cast<char*>(&last_mod_file_time), 2);
+    in.read(reinterpret_cast<char*>(&last_mod_file_date), 2);
+    in.read(reinterpret_cast<char*>(&crc32), 4);
+    in.read(reinterpret_cast<char*>(&compressed_size), 4);
+    in.read(reinterpret_cast<char*>(&uncompressed_size), 4);
+    in.read(reinterpret_cast<char*>(&file_name_length), 2);
+    in.read(reinterpret_cast<char*>(&extra_field_length), 2);
+    in.read(reinterpret_cast<char*>(&file_comment_length), 2);
+    in.read(reinterpret_cast<char*>(&disk_number_start), 2);
+    in.read(reinterpret_cast<char*>(&internal_file_attributes), 2);
+    in.read(reinterpret_cast<char*>(&external_file_attributes), 4);
+    in.read(reinterpret_cast<char*>(&relative_offset_of_local_header), 4);
+    file_name = new char[file_name_length + 1];
+    in.read(file_name, file_name_length);
+    file_name[file_name_length] = '\0';
+    extra_field = new char[extra_field_length];
+    in.read(extra_field, extra_field_length);
+    file_comment = new char[file_comment_length + 1];
+    in.read(file_comment, file_comment_length);
+    file_comment[file_comment_length] = '\0';
+    byte_size = 46 + file_name_length + extra_field_length + file_comment_length;
+}
+
 char* CDFH::to_bytes() const
 {
     char* buffer = new char[byte_size];
     
-    memcpy(buffer, signature, 4);
+    memcpy(buffer, &signature, 4);
     memcpy(buffer + 4, &version_needed_to_extract, 2);
     memcpy(buffer + 6, &general_purpose_bit_flag, 2);
     memcpy(buffer + 8, &compression_method, 2);

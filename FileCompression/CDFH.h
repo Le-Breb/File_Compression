@@ -8,7 +8,7 @@
 class CDFH
 {
 public:
-    static constexpr char signature[] = "PK\1\2";
+    static constexpr int signature = 0x02014b50;
     
     ZipFile::Fields::version_needed_to_extract version_needed_to_extract;
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag;
@@ -25,9 +25,9 @@ public:
     short internal_file_attributes;
     int external_file_attributes;
     int relative_offset_of_local_header;
-    const char* file_name;
-    const char* extra_field;
-    const char* file_comment;
+    char* file_name;
+    char* extra_field;
+    char* file_comment;
     int byte_size;
 
     CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
@@ -38,11 +38,13 @@ public:
                                   int uncompressed_size = 0, short file_name_length = 0, short extra_field_length = 0,
                                   short file_comment_length = 0, short disk_number_start = ZipFile::disk_number,
                                   short internal_file_attributes = 0, int external_file_attributes = 0,
-                                  int relative_offset_of_local_header = 0, const char* file_name = nullptr,
-                                  const char* extra_field = nullptr, const char* file_comment = nullptr);
+                                  int relative_offset_of_local_header = 0, char* file_name = nullptr,
+                                  char* extra_field = nullptr, char* file_comment = nullptr);
 
     explicit CDFH(const LFH& lfh, short file_comment_length = 0, short disk_number_start = ZipFile::disk_number, short internal_file_attributes = 0, int external_file_attributes = 0,
-                  int relative_offset_of_local_header = 0, const char* file_comment = nullptr);
+                  int relative_offset_of_local_header = 0, char* file_comment = nullptr);
+
+    explicit CDFH(std::ifstream& in, int offset);
 
     char* to_bytes() const;
 

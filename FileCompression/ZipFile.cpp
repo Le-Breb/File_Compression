@@ -27,8 +27,29 @@ EOCD* ZipFile::find_eocd(std::ifstream& in)
     const int eocd_size = file_size - index;
     char* eocd_bytes = new char[eocd_size];
     in.read(eocd_bytes, eocd_size);
+    in.clear(); // clear EOF flag caused by the seekg because we read the last byte
     
-    return EOCD::parse(eocd_bytes, -4);
+    return new EOCD(eocd_bytes - 4);
+}
+
+void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_central_directory, const int& central_directory_size)
+{
+    int offset = offset_of_start_of_central_directory;
+    while (offset < offset_of_start_of_central_directory + central_directory_size)
+    {
+        CDFH cdfh(in, offset);
+        File* file = new File(in, cdfh);
+        files.push_back(file);
+        offset += cdfh.byte_size + cdfh.file_name_length + cdfh.extra_field_length + cdfh.file_comment_length;
+    }
+}
+
+void ZipFile::list_files()
+{
+    for (const auto file : files)
+    {
+        std::cout << file->file_name << std::endl;
+    }
 }
 
 ZipFile::~ZipFile()
@@ -70,17 +91,19 @@ void ZipFile::write(const char* filename)
         outfile.write(file->compressed_data, file->compressed_size);
         file_offsets[file] = offset;
         offset += std::get<1>(lfh_bytes_and_size) + file->compressed_size;
+        delete std::get<0>(lfh_bytes_and_size);
     }
     const int cd_start_offset = offset;
 
-    // Write CD
+    // Write all CDFHs
     for (auto file : files)
     {
-        const int relative_offset_of_local_header = offset - file_offsets[file];
+        const int relative_offset_of_local_header = file_offsets[file];
         std::tuple<char*, int> cdfh_bytes_and_size = CDFH::build_from(*file, relative_offset_of_local_header);
         outfile.write(std::get<0>(cdfh_bytes_and_size), std::get<1>(cdfh_bytes_and_size));
         outfile.write(file->compressed_data, file->compressed_size);
         offset += std::get<1>(cdfh_bytes_and_size);
+        delete std::get<0>(cdfh_bytes_and_size);
     }
 
     const int cd_size = offset - cd_start_offset;
@@ -100,8 +123,9 @@ ZipFile::ZipFile(const char* filename)
     if (!in.is_open()) throw std::exception("File not found");
 
     EOCD* eocd = find_eocd(in);
-
     std::cout << *eocd << std::endl;
+    register_files(in, eocd->offset_of_start_of_central_directory, eocd->size_of_the_central_directory);
+    list_files();
     
     delete eocd;
 }

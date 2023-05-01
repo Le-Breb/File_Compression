@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <tuple>
 
-#include "LFH.h"
+#include "CDFH.h"
 
 class File
 {
@@ -27,6 +27,7 @@ public:
     const char* file_comment;
 
     ~File();
+    explicit File(std::ifstream& in, const CDFH& cdfh);
     explicit File(const char* path, ZipFile::Fields::compression_method compression_method = ZipFile::Fields::compression_method::Stored);
     std::tuple<char*, int> get_compressed_data(char* data, int file_size) const;
     const std::tuple<char*, int> get_uncompressed_data(char* data, int compressed_file_size) const;

@@ -9,7 +9,6 @@ class EOCD
 public:
     static constexpr int signature = 0x06054b50;
 
-    ZipFile::Fields::version_needed_to_extract version_needed_to_extract;
     short number_of_this_disk;
     short number_of_disk_with_start_of_central_directory;
     short total_number_of_entries_in_the_central_directory_on_this_disk;
@@ -29,7 +28,7 @@ public:
         short zip_file_comment_length = 0,
         const char* zip_file_comment = nullptr);
 
-    static EOCD* parse(const char* bytes, const int& offset);
+    explicit EOCD(const char* bytes);
 
     ~EOCD();
 
