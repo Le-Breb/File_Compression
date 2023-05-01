@@ -32,5 +32,7 @@ public:
 
     ~LFH();
 
+    static std::tuple<char*, int> build_from(const File& file);
+
     char* to_bytes() const;
 };

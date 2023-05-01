@@ -1,11 +1,16 @@
 ﻿#pragma once
 #include <cstdint>
+#include <fstream>
 #include <vector>
 
+
 class File;
+class EOCD;
 
 class ZipFile
 {
+private:
+    EOCD* find_eocd(std::ifstream& in);
 public:
     static constexpr int current_version = 20;
     static constexpr int disk_number = 0;
@@ -155,6 +160,6 @@ public:
     void write(const char* filename);
 
     ZipFile();
-    
-    ZipFile(const char* filename);
+
+    explicit ZipFile(const char* filename);
 };

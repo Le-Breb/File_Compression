@@ -1,6 +1,7 @@
 ﻿#include "LFH.h"
 
 #include <cstring>
+#include "File.h"
 
 LFH::LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
          ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
@@ -24,6 +25,27 @@ LFH::~LFH()
 {
     delete[] file_name;
     delete[] extra_field;
+}
+
+std::tuple<char*, int> LFH::build_from(const File& file)
+{
+    int byte_size = 30 + file.file_name_length + file.extra_field_length;
+    char* bytes = new char[byte_size];
+    memcpy(bytes, &signature, 4);
+    memcpy(bytes + 4, &file.version_needed_to_extract, 2);
+    memcpy(bytes + 6, &file.general_purpose_bit_flag, 2);
+    memcpy(bytes + 8, &file.compression_method, 2);
+    memcpy(bytes + 10, &file.last_mod_file_time, 2);
+    memcpy(bytes + 12, &file.last_mod_file_date, 2);
+    memcpy(bytes + 14, &file.crc32, 4);
+    memcpy(bytes + 18, &file.compressed_size, 4);
+    memcpy(bytes + 22, &file.uncompressed_size, 4);
+    memcpy(bytes + 26, &file.file_name_length, 2);
+    memcpy(bytes + 28, &file.extra_field_length, 2);
+    memcpy(bytes + 30, file.file_name, file.file_name_length);
+    memcpy(bytes + 30 + file.file_name_length, file.extra_field, file.extra_field_length);
+    
+    return std::tuple<char*, int>(bytes, byte_size);
 }
 
 char* LFH::to_bytes() const
