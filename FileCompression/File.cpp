@@ -29,7 +29,7 @@ File::File(std::ifstream& in, const CDFH& cdfh)
     extra_field = cdfh.extra_field;
     file_comment = cdfh.file_comment;
 
-    LFH lfh = LFH(in, cdfh.relative_offset_of_local_header);
+    const LFH lfh = LFH(in, cdfh.relative_offset_of_local_header);
     compressed_data = new char[lfh.compressed_size];
     in.read(compressed_data, compressed_size);
 }

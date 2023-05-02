@@ -30,7 +30,7 @@ public:
         unsigned int uncompressed_size = 0, unsigned short file_name_length = 0, unsigned short extra_field_length = 0,
         char* file_name = nullptr, char* extra_field = nullptr);
 
-    explicit LFH(std::ifstream& in, int offset);
+    explicit LFH(std::ifstream& in, unsigned offset);
 
     ~LFH();
 

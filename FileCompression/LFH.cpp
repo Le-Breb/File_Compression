@@ -23,7 +23,7 @@ LFH::LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
 {
 }
 
-LFH::LFH(std::ifstream& in, int offset)
+LFH::LFH(std::ifstream& in, const unsigned offset)
 {
     in.seekg(offset);
     int signature_check;
