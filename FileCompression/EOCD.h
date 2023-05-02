@@ -9,26 +9,26 @@ class EOCD
 public:
     static constexpr int signature = 0x06054b50;
 
-    short number_of_this_disk;
-    short number_of_disk_with_start_of_central_directory;
-    short total_number_of_entries_in_the_central_directory_on_this_disk;
-    short total_number_of_entries_in_the_central_directory;
-    int size_of_the_central_directory;
-    int offset_of_start_of_central_directory;
-    short zip_file_comment_length;
-    const char* zip_file_comment;
-    int byte_size;
+    unsigned short number_of_this_disk;
+    unsigned short number_of_disk_with_start_of_central_directory;
+    unsigned short total_number_of_entries_in_the_central_directory_on_this_disk;
+    unsigned short total_number_of_entries_in_the_central_directory;
+    unsigned int size_of_the_central_directory;
+    unsigned int offset_of_start_of_central_directory;
+    unsigned short zip_file_comment_length;
+    char* zip_file_comment;
+    unsigned int byte_size;
 
-    EOCD(short number_of_this_disk = ZipFile::disk_number,
-        short number_of_disk_with_start_of_central_directory = ZipFile::disk_number,
-        short total_number_of_entries_in_the_central_directory_on_this_disk = 0,
-        short total_number_of_entries_in_the_central_directory = 0,
-        int size_of_the_central_directory = 0,
-        int offset_of_start_of_central_directory = 0,
-        short zip_file_comment_length = 0,
-        const char* zip_file_comment = nullptr);
+    EOCD(unsigned short number_of_this_disk = ZipFile::disk_number,
+        unsigned short number_of_disk_with_start_of_central_directory = ZipFile::disk_number,
+        unsigned short total_number_of_entries_in_the_central_directory_on_this_disk = 0,
+        unsigned short total_number_of_entries_in_the_central_directory = 0,
+        unsigned int size_of_the_central_directory = 0,
+        unsigned int offset_of_start_of_central_directory = 0,
+        unsigned short zip_file_comment_length = 0,
+        char* zip_file_comment = nullptr);
 
-    explicit EOCD(const char* bytes);
+    explicit EOCD(std::ifstream& file, unsigned int offset);
 
     ~EOCD();
 

@@ -147,3 +147,23 @@ const std::tuple<char*, int> File::get_uncompressed_data(char* data, int compres
     throw new std::exception("Not implemented");
 }
 
+std::ostream& operator<<(std::ostream& os, const File& file)
+{
+    os << "----------------------------------------" << std::endl;
+    os << "Name: " << file.file_name << std::endl;
+    os << "Size: " << file.uncompressed_size << std::endl;
+    os << "Compression method: " << file.compression_method << std::endl;
+    os << "Compressed size: " << file.compressed_size << std::endl;
+    os << "CRC32: " << std::hex << file.crc32 << std::endl << std::dec;
+    os << "Last modified: " << file.last_mod_file_date << " " << file.last_mod_file_time << std::endl;
+    os << "Version needed to extract: " << file.version_needed_to_extract << std::endl;
+    os << "General purpose bit flag: " << file.general_purpose_bit_flag << std::endl;
+    if (file.file_comment_length > 0)
+        os << "Comment: " << file.file_comment << std::endl;
+    os << "Internal file attributes: " << file.internal_file_attributes << std::endl;
+    os << "External file attributes: " << file.external_file_attributes << std::endl;
+    if (file.extra_field_length > 0)
+        os << "Extra field: " << file.extra_field << std::endl;
+    os << "----------------------------------------" << std::endl;
+    return os;
+}

@@ -1,27 +1,30 @@
 ﻿#include "CDFH.h"
 
 #include <cstring>
+#include <iostream>
+
 #include"File.h"
 
-CDFH::CDFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
+CDFH::CDFH(ZipFile::Fields::version_made_by version_made_by, ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
-    ZipFile::Fields::compression_method compression_method, short last_mod_file_time, short last_mod_file_date,
-    int crc32, int compressed_size, int uncompressed_size, short file_name_length, short extra_field_length,
-    short file_comment_length, short disk_number_start, short internal_file_attributes, int external_file_attributes,
-    int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
-    version_needed_to_extract(version_needed_to_extract), general_purpose_bit_flag(general_purpose_bit_flag),
-    compression_method(compression_method), last_mod_file_time(last_mod_file_time),
-    last_mod_file_date(last_mod_file_date), crc32(crc32), compressed_size(compressed_size),
-    uncompressed_size(uncompressed_size), file_name_length(file_name_length), extra_field_length(extra_field_length),
-    file_comment_length(file_comment_length), disk_number_start(disk_number_start),
-    internal_file_attributes(internal_file_attributes), external_file_attributes(external_file_attributes),
+    ZipFile::Fields::compression_method compression_method, unsigned short last_mod_file_time, unsigned short last_mod_file_date,
+    unsigned int crc32, unsigned int compressed_size, unsigned int uncompressed_size, unsigned short file_name_length, unsigned short extra_field_length,
+    unsigned short file_comment_length, unsigned short disk_number_start, unsigned short internal_file_attributes, unsigned int external_file_attributes,
+    unsigned int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
+    version_made_by(version_made_by), version_needed_to_extract(version_needed_to_extract),
+    general_purpose_bit_flag(general_purpose_bit_flag), compression_method(compression_method),
+    last_mod_file_time(last_mod_file_time), last_mod_file_date(last_mod_file_date), crc32(crc32),
+    compressed_size(compressed_size), uncompressed_size(uncompressed_size), file_name_length(file_name_length),
+    extra_field_length(extra_field_length), file_comment_length(file_comment_length),
+    disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
+    external_file_attributes(external_file_attributes),
     relative_offset_of_local_header(relative_offset_of_local_header), file_name(file_name), extra_field(extra_field),
     file_comment(file_comment), byte_size(46 + file_name_length + extra_field_length + file_comment_length)
 {
 }
 
-CDFH::CDFH(const LFH& lfh, short file_comment_length, short disk_number_start, short internal_file_attributes,
-    int external_file_attributes, int relative_offset_of_local_header, char* file_comment) :
+CDFH::CDFH(const LFH& lfh, unsigned short file_comment_length, unsigned short disk_number_start, unsigned short internal_file_attributes,
+    unsigned int external_file_attributes, unsigned int relative_offset_of_local_header, char* file_comment) :
     version_needed_to_extract(lfh.version_needed_to_extract), general_purpose_bit_flag(lfh.general_purpose_bit_flag),
     compression_method(lfh.compression_method), last_mod_file_time(lfh.last_mod_file_time),
     last_mod_file_date(lfh.last_mod_file_date), crc32(lfh.crc32), compressed_size(lfh.compressed_size),
@@ -43,6 +46,7 @@ CDFH::CDFH(std::ifstream& in, int offset)
     in.read(reinterpret_cast<char*>(&signature_check), 4);
     if (signature_check != signature)
         throw std::exception("CDFH signature not found");
+    in.read(reinterpret_cast<char*>(&version_made_by), 2);
     in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
     in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
     in.read(reinterpret_cast<char*>(&compression_method), 2);
@@ -126,7 +130,7 @@ std::tuple<char*, int> CDFH::build_from(const File& file, const int relative_off
 
 CDFH::~CDFH()
 {
-    delete[] file_name;
-    delete[] extra_field;
-    delete[] file_comment;
+    //delete[] file_name;
+    //delete[] extra_field;
+    //delete[] file_comment;
 }

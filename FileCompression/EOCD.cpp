@@ -5,11 +5,11 @@
 
 #include "Exceptions.h"
 
-EOCD::EOCD(short number_of_this_disk,
-    short number_of_disk_with_start_of_central_directory,
-    short total_number_of_entries_in_the_central_directory_on_this_disk,
-    short total_number_of_entries_in_the_central_directory, int size_of_the_central_directory,
-    int offset_of_start_of_central_directory, short zip_file_comment_length, const char* zip_file_comment) :
+EOCD::EOCD(unsigned short number_of_this_disk,
+    unsigned short number_of_disk_with_start_of_central_directory,
+    unsigned short total_number_of_entries_in_the_central_directory_on_this_disk,
+    unsigned short total_number_of_entries_in_the_central_directory, unsigned int size_of_the_central_directory,
+    unsigned int offset_of_start_of_central_directory, unsigned short zip_file_comment_length, char* zip_file_comment) :
     number_of_this_disk(number_of_this_disk),
     number_of_disk_with_start_of_central_directory(number_of_disk_with_start_of_central_directory),
     total_number_of_entries_in_the_central_directory_on_this_disk(
@@ -21,16 +21,25 @@ EOCD::EOCD(short number_of_this_disk,
 {
 }
 
-EOCD::EOCD(const char* bytes)
+EOCD::EOCD(std::ifstream& file, unsigned offset)
 {
-    number_of_this_disk = *(bytes + 4);
-    number_of_disk_with_start_of_central_directory = *(bytes + 6);
-    total_number_of_entries_in_the_central_directory_on_this_disk = *(bytes + 8);
-    total_number_of_entries_in_the_central_directory = *(bytes + 10);
-    size_of_the_central_directory = *(bytes + 12);
-    offset_of_start_of_central_directory = *(bytes + 16);
-    zip_file_comment_length = *(bytes + 20);
-    zip_file_comment = zip_file_comment_length > 0 ? bytes + 22 : nullptr;
+    file.seekg(offset);
+    unsigned int signature_check = 0;
+    file.read(reinterpret_cast<char*>(&signature_check), 4);
+    if (signature_check != signature)
+        throw invalid_file(invalid_file::Reason::INVALID_EOCD);
+    file.read(reinterpret_cast<char*>(&number_of_this_disk), 2);
+    file.read(reinterpret_cast<char*>(&number_of_disk_with_start_of_central_directory), 2);
+    file.read(reinterpret_cast<char*>(&total_number_of_entries_in_the_central_directory_on_this_disk), 2);
+    file.read(reinterpret_cast<char*>(&total_number_of_entries_in_the_central_directory), 2);
+    file.read(reinterpret_cast<char*>(&size_of_the_central_directory), 4);
+    file.read(reinterpret_cast<char*>(&offset_of_start_of_central_directory), 4);
+    file.read(reinterpret_cast<char*>(&zip_file_comment_length), 2);
+    zip_file_comment = new char[zip_file_comment_length + 1];
+    file.read(zip_file_comment, zip_file_comment_length);
+    zip_file_comment[zip_file_comment_length] = '\0';
+    byte_size = 22 + zip_file_comment_length;
+    file.clear(); // Clear EOF flag to allow continuing reading (otherwise, the next read will fail)
 }
 
 EOCD::~EOCD()

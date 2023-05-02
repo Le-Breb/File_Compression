@@ -13,7 +13,7 @@ public:
     ZipFile::Fields::compression_method compression_method;
     short last_mod_file_time;
     short last_mod_file_date;
-    int crc32;
+    unsigned crc32;
     int compressed_size;
     int uncompressed_size;
     short file_name_length;
@@ -31,5 +31,6 @@ public:
     explicit File(const char* path, ZipFile::Fields::compression_method compression_method = ZipFile::Fields::compression_method::Stored);
     std::tuple<char*, int> get_compressed_data(char* data, int file_size) const;
     const std::tuple<char*, int> get_uncompressed_data(char* data, int compressed_file_size) const;
+    friend std::ostream& operator<<(std::ostream& os, const File& file);
     //char* to_bytes(const CDFH& cdfh) const;
 };

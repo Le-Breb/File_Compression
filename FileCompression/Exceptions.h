@@ -22,7 +22,8 @@ class invalid_file final : public std::exception
 public:
     enum class Reason
     {
-        NO_EOCD
+        NO_EOCD,
+        INVALID_EOCD
     };
     explicit invalid_file(const Reason reason) : reason_(reason) {}
     char * what () {
@@ -35,6 +36,8 @@ public:
         {
         case Reason::NO_EOCD:
             return "The file does not contain an EOCD record.";
+        case Reason::INVALID_EOCD:
+            return "Invalid EOCD record.";
         default:
             return "Unknown reason.";
         }

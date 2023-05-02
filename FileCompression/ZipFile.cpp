@@ -14,22 +14,18 @@ EOCD* ZipFile::find_eocd(std::ifstream& in)
 {
     in.seekg(sizeof(char), std::ios::end);
     const int file_size = in.tellg();
-    int index = file_size; // index of the last byte + 1
+    int offset = file_size; // index of the last byte + 1
     int signature_search = 0;
-    while (index >= 0 && signature_search != EOCD::signature)
+    while (offset >= 0 && signature_search != EOCD::signature)
     {
         in.seekg(-5 * sizeof(char), std::ios::cur);
-        index--;
+        offset--;
         in.read(reinterpret_cast<char*>(&signature_search), 4);
     }
 
     if (signature_search != EOCD::signature) throw invalid_file(invalid_file::Reason::NO_EOCD);
-    const int eocd_size = file_size - index;
-    char* eocd_bytes = new char[eocd_size];
-    in.read(eocd_bytes, eocd_size);
-    in.clear(); // clear EOF flag caused by the seekg because we read the last byte
     
-    return new EOCD(eocd_bytes - 4);
+    return new EOCD(in, offset - 4);
 }
 
 void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_central_directory, const int& central_directory_size)
@@ -40,15 +36,16 @@ void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_ce
         CDFH cdfh(in, offset);
         File* file = new File(in, cdfh);
         files.push_back(file);
-        offset += cdfh.byte_size + cdfh.file_name_length + cdfh.extra_field_length + cdfh.file_comment_length;
+        offset += cdfh.byte_size;
     }
 }
 
 void ZipFile::list_files()
 {
+    std::cout << "Files: (" << files.size() << ")" << std::endl;
     for (const auto file : files)
     {
-        std::cout << file->file_name << std::endl;
+        std::cout << *file << std::endl;
     }
 }
 
@@ -129,3 +126,37 @@ ZipFile::ZipFile(const char* filename)
     
     delete eocd;
 }
+
+const std::map<ZipFile::Fields::general_purpose_bit_flag, std::string> ZipFile::Fields::general_purpose_bit_flag_to_string = {
+            { general_purpose_bit_flag::Encrypted, "encrypted" },
+            { general_purpose_bit_flag::Compression_option_1, "compression_option1" },
+            { general_purpose_bit_flag::Compression_option_2, "compression_option2" },
+            { general_purpose_bit_flag::Data_descriptor, "data_descriptor" },
+            { general_purpose_bit_flag::Enhanced_deflation, "enhanced_deflating" },
+            { general_purpose_bit_flag::Compressed_patched_data, "compressed_patched_data" },
+            { general_purpose_bit_flag::Strong_encryption, "strong_encryption" },
+            /*{ general_purpose_bit_flag::Unused_8, "unused_8" },
+            { general_purpose_bit_flag::Unused_9, "unused_9" },
+            { general_purpose_bit_flag::Unused_10, "unused_10" },
+            { general_purpose_bit_flag::Unused_11, "unused_11" },*/
+            { general_purpose_bit_flag::UTF_8, "UTF-8" },
+            /*{ general_purpose_bit_flag::Language_encoding, "language_encoding" },
+            { general_purpose_bit_flag::Reserved_14, "reserved_14" },*/
+            { general_purpose_bit_flag::Mask_header_values, "mask_header_values" }
+            /*{ general_purpose_bit_flag::Reserved_16, "reserved_16" },
+            { general_purpose_bit_flag::Reserved_17, "reserved_17" },
+            { general_purpose_bit_flag::Reserved_18, "reserved_18" },
+            { general_purpose_bit_flag::Reserved_19, "reserved_19" },
+            { general_purpose_bit_flag::Reserved_20, "reserved_20" },
+            { general_purpose_bit_flag::Reserved_21, "reserved_21" },
+            { general_purpose_bit_flag::Reserved_22, "reserved_22" },
+            { general_purpose_bit_flag::Reserved_23, "reserved_23" },
+            { general_purpose_bit_flag::Reserved_24, "reserved_24" },
+            { general_purpose_bit_flag::Reserved_25, "reserved_25" },
+            { general_purpose_bit_flag::Reserved_26, "reserved_26" },
+            { general_purpose_bit_flag::Reserved_27, "reserved_27" },
+            { general_purpose_bit_flag::Reserved_28, "reserved_28" },
+            { general_purpose_bit_flag::Reserved_29, "reserved_29" },
+            { general_purpose_bit_flag::Reserved_30, "reserved_30" },
+            { general_purpose_bit_flag::Reserved_31, "reserved_31" },*/
+        };
