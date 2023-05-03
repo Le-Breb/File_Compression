@@ -40,7 +40,7 @@ void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_ce
     }
 }
 
-void ZipFile::list_files()
+void ZipFile::list_files() const
 {
     std::cout << "Files: (" << files.size() << ")" << std::endl;
     for (const auto file : files)
@@ -49,12 +49,35 @@ void ZipFile::list_files()
     }
 }
 
+MS_DOS::Date ZipFile::get_date_from_system()
+{
+    
+    time_t now = time(0);
+#pragma warning(disable:4996)
+    tm* ltm = localtime(&now);
+#pragma warning(default:4996)
+    auto b = localtime_s(ltm, &now);
+    
+    return MS_DOS::Date(ltm->tm_year + 1900, ltm->tm_mon + 1, ltm->tm_mday);
+}
+
+MS_DOS::Time ZipFile::get_time_from_system()
+{
+    time_t now = time(0);
+#pragma warning(disable:4996)
+    tm* ltm = localtime(&now);
+#pragma warning(default:4996)
+    return MS_DOS::Time(ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+}
+
 ZipFile::~ZipFile()
 {
     for (const auto file : files)
     {
         delete file;
     }
+    delete creation_date_;
+    delete creation_time_;
 }
 
 void ZipFile::write_empty_zip_file(const char* filename)
@@ -69,7 +92,7 @@ void ZipFile::write_empty_zip_file(const char* filename)
 
 void ZipFile::add_file(const char* filename)
 {
-    File* file = new File(filename);
+    File* file = new File(filename, Fields::compression_method::Stored, *creation_time_, *creation_date_);
     files.push_back(file);
 }
 
@@ -111,10 +134,11 @@ void ZipFile::write(const char* filename)
     outfile.write(eocd.to_bytes(), eocd.byte_size);
 }
 
-ZipFile::ZipFile()
-= default;
+ZipFile::ZipFile() : creation_date_(new MS_DOS::Date(get_date_from_system())), creation_time_(new MS_DOS::Time(get_time_from_system()))
+{
+}
 
-ZipFile::ZipFile(const char* filename)
+ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_date_from_system())), creation_time_(new MS_DOS::Time(get_time_from_system()))
 {
     std::ifstream in(filename, std::ios::binary | std::ios::in);
     if (!in.is_open()) throw std::exception("File not found");

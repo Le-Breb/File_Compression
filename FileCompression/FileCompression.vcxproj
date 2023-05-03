@@ -161,6 +161,8 @@
     <ClCompile Include="File.cpp" />
     <ClCompile Include="FileCompression.cpp" />
     <ClCompile Include="LFH.cpp" />
+    <ClCompile Include="MS-DOS\Date.cpp" />
+    <ClCompile Include="MS-DOS\Time.cpp" />
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -170,6 +172,8 @@
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="LFH.h" />
+    <ClInclude Include="MS-DOS\Date.h" />
+    <ClInclude Include="MS-DOS\Time.h" />
     <ClInclude Include="ZipFile.h" />
   </ItemGroup>
   <ItemGroup>

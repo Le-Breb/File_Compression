@@ -7,13 +7,13 @@
 
 CDFH::CDFH(ZipFile::Fields::version_made_by version_made_by, ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
-    ZipFile::Fields::compression_method compression_method, unsigned short last_mod_file_time, unsigned short last_mod_file_date,
+    ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
     unsigned int crc32, unsigned int compressed_size, unsigned int uncompressed_size, unsigned short file_name_length, unsigned short extra_field_length,
     unsigned short file_comment_length, unsigned short disk_number_start, unsigned short internal_file_attributes, unsigned int external_file_attributes,
     unsigned int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
     version_made_by(version_made_by), version_needed_to_extract(version_needed_to_extract),
     general_purpose_bit_flag(general_purpose_bit_flag), compression_method(compression_method),
-    last_mod_file_time(last_mod_file_time), last_mod_file_date(last_mod_file_date), crc32(crc32),
+    last_mod_file_time(new MS_DOS::Time(last_mod_file_time)), last_mod_file_date(new MS_DOS::Date(last_mod_file_date)), crc32(crc32),
     compressed_size(compressed_size), uncompressed_size(uncompressed_size), file_name_length(file_name_length),
     extra_field_length(extra_field_length), file_comment_length(file_comment_length),
     disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
@@ -50,8 +50,12 @@ CDFH::CDFH(std::ifstream& in, int offset)
     in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
     in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
     in.read(reinterpret_cast<char*>(&compression_method), 2);
-    in.read(reinterpret_cast<char*>(&last_mod_file_time), 2);
-    in.read(reinterpret_cast<char*>(&last_mod_file_date), 2);
+    unsigned char time[2];
+    in.read(reinterpret_cast<char*>(&time), 2);
+    last_mod_file_time = new MS_DOS::Time(time);
+    unsigned char date[2];
+    in.read(reinterpret_cast<char*>(date), 2);
+    last_mod_file_date = new MS_DOS::Date(date);
     in.read(reinterpret_cast<char*>(&crc32), 4);
     in.read(reinterpret_cast<char*>(&compressed_size), 4);
     in.read(reinterpret_cast<char*>(&uncompressed_size), 4);
@@ -133,4 +137,6 @@ CDFH::~CDFH()
     //delete[] file_name;
     //delete[] extra_field;
     //delete[] file_comment;
+    //delete last_mod_file_time;
+    //delete last_mod_file_date;
 }

@@ -7,6 +7,8 @@
 File::~File()
 {
     delete[] compressed_data;
+    //delete last_mod_file_time;
+    //delete last_mod_file_date;
 }
 
 File::File(std::ifstream& in, const CDFH& cdfh)
@@ -34,7 +36,7 @@ File::File(std::ifstream& in, const CDFH& cdfh)
     in.read(compressed_data, compressed_size);
 }
 
-File::File(const char* path, ZipFile::Fields::compression_method compression_method)
+File::File(const char* path, ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date)
 {
     std::ifstream in(path);
     if (!in.is_open()) throw std::exception("File not found");
@@ -51,8 +53,8 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     version_needed_to_extract = static_cast<ZipFile::Fields::version_needed_to_extract>(ZipFile::current_version);
     general_purpose_bit_flag = ZipFile::Fields::general_purpose_bit_flag::None;
     this->compression_method = compression_method;
-    last_mod_file_time = 0;
-    last_mod_file_date = 0;
+    this->last_mod_file_time = new MS_DOS::Time(last_mod_file_time);
+    this->last_mod_file_date = new MS_DOS::Date(last_mod_file_date);
     crc32 = 0;
     compressed_size = std::get<1>(compressed_data_and_size);
     uncompressed_size = file_size;
@@ -155,7 +157,7 @@ std::ostream& operator<<(std::ostream& os, const File& file)
     os << "Compression method: " << file.compression_method << std::endl;
     os << "Compressed size: " << file.compressed_size << std::endl;
     os << "CRC32: " << std::hex << file.crc32 << std::endl << std::dec;
-    os << "Last modified: " << file.last_mod_file_date << " " << file.last_mod_file_time << std::endl;
+    os << "Last modified: " << *file.last_mod_file_date << " " << *file.last_mod_file_time << std::endl;
     os << "Version needed to extract: " << file.version_needed_to_extract << std::endl;
     os << "General purpose bit flag: " << file.general_purpose_bit_flag << std::endl;
     if (file.file_comment_length > 0)

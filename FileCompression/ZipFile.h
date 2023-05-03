@@ -4,6 +4,9 @@
 #include <map>
 #include <vector>
 
+#include "MS-DOS/Date.h"
+#include "MS-DOS/Time.h"
+
 
 class File;
 class EOCD;
@@ -13,7 +16,11 @@ class ZipFile
 private:
     EOCD* find_eocd(std::ifstream& in);
     void register_files(std::ifstream& in, const int& offset_of_start_of_central_directory, const int& central_directory_size);
-    void list_files();
+    void list_files() const;
+    MS_DOS::Date* creation_date_;
+    MS_DOS::Time* creation_time_;
+    MS_DOS::Date get_date_from_system();
+    MS_DOS::Time get_time_from_system();
 public:
     static constexpr unsigned int current_version = 20;
     static constexpr unsigned int disk_number = 0;

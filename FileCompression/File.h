@@ -11,8 +11,8 @@ public:
     ZipFile::Fields::version_needed_to_extract version_needed_to_extract;
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag;
     ZipFile::Fields::compression_method compression_method;
-    unsigned short last_mod_file_time;
-    unsigned short last_mod_file_date;
+    MS_DOS::Time* last_mod_file_time;
+    MS_DOS::Date* last_mod_file_date;
     unsigned int crc32;
     unsigned int compressed_size;
     unsigned int uncompressed_size;
@@ -28,7 +28,8 @@ public:
 
     ~File();
     explicit File(std::ifstream& in, const CDFH& cdfh);
-    explicit File(const char* path, ZipFile::Fields::compression_method compression_method = ZipFile::Fields::compression_method::Stored);
+    explicit File(const char* path,
+                  ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date);
     std::tuple<char*, int> get_compressed_data(char* data, int file_size) const;
     const std::tuple<char*, int> get_uncompressed_data(char* data, int compressed_file_size) const;
     friend std::ostream& operator<<(std::ostream& os, const File& file);

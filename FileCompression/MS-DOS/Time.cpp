@@ -1,0 +1,36 @@
+﻿#include "Time.h"
+
+namespace MS_DOS
+{
+    unsigned short MS_DOS::Time::get_second() const
+    {
+        return (bytes_[0] & 0b00011111) * 2;
+    }
+
+    Time Time::operator=(const Time& time) const
+    {
+        return Time{ time.bytes_ };
+    }
+
+    unsigned short MS_DOS::Time::get_minute() const
+    {
+        return (bytes_[1] >> 5) + ((bytes_[1] & 0b00000001) << 3);
+    }
+
+    Time::Time(unsigned short hour, unsigned short minute, unsigned short second) : bytes_
+        {static_cast<unsigned char>((second / 2) | ((minute & 0b00000111) << 5)),
+         static_cast<unsigned char>(((minute & 0b00001000) >> 3) | (hour << 3))}
+    { }
+
+    unsigned short MS_DOS::Time::get_hour() const
+    {
+        return bytes_[1] >> 3;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const Time& time)
+    {
+        os << time.get_hour() << ':' << time.get_minute() << ':' << time.get_second();
+
+        return os;
+    }
+}

@@ -7,13 +7,13 @@
 
 LFH::LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
          ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
-         ZipFile::Fields::compression_method compression_method, unsigned short last_mod_file_time, unsigned short last_mod_file_date,
+         ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
          unsigned int crc32, unsigned int compressed_size, unsigned int uncompressed_size, unsigned short file_name_length, unsigned short extra_field_length,
          char* file_name, char* extra_field) : version_needed_to_extract(version_needed_to_extract),
                                                            general_purpose_bit_flag(general_purpose_bit_flag),
                                                            compression_method(compression_method),
-                                                           last_mod_file_time(last_mod_file_time),
-                                                           last_mod_file_date(last_mod_file_date), crc32(crc32),
+                                                           last_mod_file_time(new MS_DOS::Time(last_mod_file_time)),
+                                                           last_mod_file_date(new MS_DOS::Date(last_mod_file_date)), crc32(crc32),
                                                            compressed_size(compressed_size),
                                                            uncompressed_size(uncompressed_size),
                                                            file_name_length(file_name_length),
@@ -53,6 +53,8 @@ LFH::~LFH()
 {
     //delete[] file_name;
     //delete[] extra_field;
+    //delete last_mod_file_time;
+    //delete last_mod_file_date;
 }
 
 std::tuple<char*, int> LFH::build_from(const File& file)
