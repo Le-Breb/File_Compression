@@ -155,6 +155,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CDFH.cpp" />
+    <ClCompile Include="Compressors\Deflate.cpp" />
+    <ClCompile Include="Compressors\Huffman_Tree\Huffman_Tree.cpp" />
     <ClCompile Include="CRC32.cpp" />
     <ClCompile Include="EOCD.cpp" />
     <ClCompile Include="Exceptions.cpp" />
@@ -167,6 +169,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CDFH.h" />
+    <ClInclude Include="Compressors\Deflate.h" />
+    <ClInclude Include="Compressors\Huffman_Tree\Huffman_Tree.h" />
     <ClInclude Include="CRC32.h" />
     <ClInclude Include="EOCD.h" />
     <ClInclude Include="Exceptions.h" />
@@ -175,9 +179,6 @@
     <ClInclude Include="MS-DOS\Date.h" />
     <ClInclude Include="MS-DOS\Time.h" />
     <ClInclude Include="ZipFile.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Compressors\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
