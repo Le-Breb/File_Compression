@@ -2,35 +2,28 @@
 
 #include <algorithm>
 #include <iostream>
-#include <vector>
 
-bool cmp(const std::pair<char, int>& a, const std::pair<char, int>& b)
+
+void Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_length)
 {
-    return a.second < b.second;
-}
-
-char* Huffman_Tree::sort_by_frequency(const std::map<char, int>& frequency_table)
-{
-    char* sorted_chars = new char[frequency_table.size()];
-    std::vector<std::pair<char, int>> tmp;
-    tmp.reserve(frequency_table.size());
-    for(const auto& p : frequency_table)
-        tmp.emplace_back(p);
-
-    std::sort(std::begin(tmp), std::end(tmp), cmp);
-
-    int i = 0;
-    for(const auto& el : tmp)
+    if (node.val == 0)
     {
-        sorted_chars[i] = el.first;
-        i++;
+        if (node.left != nullptr)
+            generate_chars_of_bit_length(*node.left, bit_length + 1);
+        if (node.right != nullptr)
+            generate_chars_of_bit_length(*node.right, bit_length + 1);
     }
-    
-    return sorted_chars;
+    else
+    {
+        if (!chars_of_bit_length_.contains(bit_length))
+            chars_of_bit_length_[bit_length] = 1;
+        else
+            chars_of_bit_length_[bit_length]++;
+    }
 }
 
 Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
-{
+{   
     std::map<int, Node*> l;
     for(const auto& el : frequency_table)
         l[el.second] = new Node(el.first, nullptr, nullptr);
@@ -47,6 +40,7 @@ Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
     }
 
     root_ = l.begin()->second;
+    generate_chars_of_bit_length(*root_, 0);
 }
 
 std::ostream& operator<<(std::ostream& os, const Huffman_Tree& huffman_tree)

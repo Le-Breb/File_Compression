@@ -1,11 +1,10 @@
 ﻿#pragma once
 #include <map>
 #include <ostream>
+#include <vector>
 
 class Huffman_Tree
 {
-    static char* sort_by_frequency(const std::map<char, int>& frequency_table);
-    
     class Node
     {
     public:
@@ -24,6 +23,11 @@ class Huffman_Tree
             return os;
         }
     };
+    
+    std::map<int, int> chars_of_bit_length_;
+    void generate_chars_of_bit_length(const Node& node, int bit_length);
+    
+    
     Node* root_;
 public:
     explicit Huffman_Tree(const std::map<char, int>& frequency_table);

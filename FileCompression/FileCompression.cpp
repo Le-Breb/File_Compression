@@ -27,5 +27,11 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-// Doc https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+// Doc https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT - https://www.ietf.org/rfc/rfc1951.txt
 //ToDo: Writing bytes directly to file instead of returning them as a char* and then writing them to file
+
+
+// Reminder : characters are encoded using a canonical huffman tree. This tree is encoded by only writing the code
+// lengths of the alphabet (which is the entire ASCII table). This is enough to be able to build the entire tree when
+// decoding the file. But the code lengths are themselves encoded using a huffman code defined in the DEFLATE
+// specifications.
