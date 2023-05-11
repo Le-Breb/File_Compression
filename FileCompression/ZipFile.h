@@ -307,7 +307,7 @@ public:
 
     void add_file(const char* filename);
 
-    void write(const char* filename);
+    void write(const char* filename) const;
 
     ZipFile();
 

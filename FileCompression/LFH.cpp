@@ -65,8 +65,8 @@ std::tuple<char*, int> LFH::build_from(const File& file)
     memcpy(bytes + 4, &file.version_needed_to_extract, 2);
     memcpy(bytes + 6, &file.general_purpose_bit_flag, 2);
     memcpy(bytes + 8, &file.compression_method, 2);
-    memcpy(bytes + 10, &file.last_mod_file_time, 2);
-    memcpy(bytes + 12, &file.last_mod_file_date, 2);
+    memcpy(bytes + 10, &file.last_mod_file_time->bytes, 2);
+    memcpy(bytes + 12, &file.last_mod_file_date->bytes_, 2);
     memcpy(bytes + 14, &file.crc32, 4);
     memcpy(bytes + 18, &file.compressed_size, 4);
     memcpy(bytes + 22, &file.uncompressed_size, 4);
@@ -75,7 +75,7 @@ std::tuple<char*, int> LFH::build_from(const File& file)
     memcpy(bytes + 30, file.file_name, file.file_name_length);
     memcpy(bytes + 30 + file.file_name_length, file.extra_field, file.extra_field_length);
     
-    return std::tuple<char*, int>(bytes, byte_size);
+    return {bytes, byte_size};
 }
 
 char* LFH::to_bytes() const

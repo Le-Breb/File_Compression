@@ -4,6 +4,8 @@
 #include <fstream>
 #include <tuple>
 
+#include "CRC32.h"
+
 File::~File()
 {
     delete[] compressed_data;
@@ -40,9 +42,8 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
 {
     std::ifstream in(path);
     if (!in.is_open()) throw std::exception("File not found");
-    int file_size = 0;
     in.seekg(0, std::ios::end);
-    file_size = in.tellg();
+    const int file_size = in.tellg();
     char* data = new char[file_size];
     in.seekg(0, std::ios::beg);
     in.read(data, file_size);
@@ -55,9 +56,10 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     this->compression_method = compression_method;
     this->last_mod_file_time = new MS_DOS::Time(last_mod_file_time);
     this->last_mod_file_date = new MS_DOS::Date(last_mod_file_date);
-    crc32 = 0;
     compressed_size = std::get<1>(compressed_data_and_size);
     uncompressed_size = file_size;
+    const CRC32 crc32;
+    this->crc32 = crc32.compute(data, uncompressed_size);
     file_name_length = strlen(path);
     extra_field_length = 0;
     file_comment_length = 0;
@@ -73,14 +75,15 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     delete[] data;
 }
 
-std::tuple<char*, int> File::get_compressed_data(char* data, int file_size) const
+std::tuple<char*, int> File::get_compressed_data(const char* data, int file_size)
 {
     char* compressed_data = new char[file_size];
     switch (compression_method)
     {
         case ZipFile::Fields::compression_method::Stored:
             memcpy(compressed_data, data, file_size);
-            return std::tuple<char*, int>(compressed_data, file_size);
+            compressed_size = file_size;
+            return {compressed_data, file_size};
         case ZipFile::Fields::compression_method::Shrunk: break;
         case ZipFile::Fields::compression_method::Reduced_1: break;
         case ZipFile::Fields::compression_method::Reduced_2: break;
@@ -88,7 +91,17 @@ std::tuple<char*, int> File::get_compressed_data(char* data, int file_size) cons
         case ZipFile::Fields::compression_method::Reduced_4: break;
         case ZipFile::Fields::compression_method::Imploded: break;
         case ZipFile::Fields::compression_method::Reserved_1: break;
-        case ZipFile::Fields::compression_method::Deflated: break;
+        case ZipFile::Fields::compression_method::Deflated:
+            {
+                throw std::exception("aled");
+                /*compressed_data = new char [] {'K', 'w', 'Y', 'A'};
+                compressed_size = 4;
+                return {compressed_data, 4};
+                std::tuple<char*, int> r = Deflate::compress(data, file_size);
+                compressed_size = std::get<1>(r);
+                compressed_data = std::get<0>(r);
+                return {compressed_data, std::get<1>(r)};*/
+            }
         case ZipFile::Fields::compression_method::Enhanced_Deflated: break;
         case ZipFile::Fields::compression_method::PKWare_DCL_Implode: break;
         case ZipFile::Fields::compression_method::Reserved_2: break;

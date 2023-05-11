@@ -1,13 +1,14 @@
 ﻿#pragma once
 #include <ostream>
 
+//https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-dosdatetimetovarianttime
 namespace MS_DOS
 {
     class Time
     {
-        const unsigned char bytes_[2];
     public:
-        explicit Time(const unsigned char bytes[2]) : bytes_{ bytes[0], bytes[1] } {}
+        const unsigned char bytes[2];
+        explicit Time(const unsigned char bytes[2]) : bytes{ bytes[0], bytes[1] } {}
         Time(unsigned short hour, unsigned short minute, unsigned short second);
         unsigned short get_hour() const;
         unsigned short get_minute() const;

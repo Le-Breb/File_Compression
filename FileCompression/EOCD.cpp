@@ -60,10 +60,10 @@ char* EOCD::to_bytes() const
     memcpy(bytes + 20, &zip_file_comment_length, 2);
     memcpy(bytes + 22, zip_file_comment, zip_file_comment_length);
 
-    std::cout << std::hex << signature << " ";
-    std::cout << (number_of_this_disk << 2 | number_of_disk_with_start_of_central_directory) << " ";
-    std::cout << (total_number_of_entries_in_the_central_directory_on_this_disk << 2 | total_number_of_entries_in_the_central_directory) << " ";
-    std::cout << size_of_the_central_directory << " " << offset_of_start_of_central_directory << " " << zip_file_comment_length << " comment" << std::endl;
+    //std::cout << std::hex << signature << " ";
+    //std::cout << (number_of_this_disk << 2 | number_of_disk_with_start_of_central_directory) << " ";
+    //std::cout << (total_number_of_entries_in_the_central_directory_on_this_disk << 2 | total_number_of_entries_in_the_central_directory) << " ";
+    //std::cout << size_of_the_central_directory << " " << offset_of_start_of_central_directory << " " << zip_file_comment_length << " comment" << std::endl;
     
     return bytes;
 }

@@ -96,7 +96,7 @@ void ZipFile::add_file(const char* filename)
     files.push_back(file);
 }
 
-void ZipFile::write(const char* filename)
+void ZipFile::write(const char* filename) const
 {
     std::ofstream outfile;
     outfile.open(filename, std::ios::binary | std::ios::out);
