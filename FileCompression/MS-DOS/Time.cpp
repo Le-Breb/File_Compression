@@ -17,6 +17,10 @@ namespace MS_DOS
         return (bytes[0] >> 5) + ((bytes[1] & 0b00000111) << 3);
     }
 
+    Time::Time(const SYSTEMTIME& t) : Time(t.wHour, t.wMinute, t.wSecond)
+    {
+    }
+
     Time::Time(unsigned short hour, unsigned short minute, unsigned short second) : bytes
         {static_cast<unsigned char>((second / 2) | ((minute & 0b00000111) << 5)),
          static_cast<unsigned char>(((minute & 0b00111000) >> 3) | (hour << 3))}
