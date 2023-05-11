@@ -85,8 +85,8 @@ char* CDFH::to_bytes() const
     memcpy(buffer + 4, &version_needed_to_extract, 2);
     memcpy(buffer + 6, &general_purpose_bit_flag, 2);
     memcpy(buffer + 8, &compression_method, 2);
-    memcpy(buffer + 10, &last_mod_file_time, 2);
-    memcpy(buffer + 12, &last_mod_file_date, 2);
+    memcpy(buffer + 10, &last_mod_file_time->bytes, 2);
+    memcpy(buffer + 12, &last_mod_file_date->bytes_, 2);
     memcpy(buffer + 14, &crc32, 4);
     memcpy(buffer + 18, &compressed_size, 4);
     memcpy(buffer + 22, &uncompressed_size, 4);
@@ -113,8 +113,8 @@ std::tuple<char*, int> CDFH::build_from(const File& file, const int relative_off
     memcpy(bytes + 4, &file.version_needed_to_extract, 2);
     memcpy(bytes + 6, &file.general_purpose_bit_flag, 2);
     memcpy(bytes + 8, &file.compression_method, 2);
-    memcpy(bytes + 10, &file.last_mod_file_time, 2);
-    memcpy(bytes + 12, &file.last_mod_file_date, 2);
+    memcpy(bytes + 10, &file.last_mod_file_time->bytes, 2);
+    memcpy(bytes + 12, &file.last_mod_file_date->bytes_, 2);
     memcpy(bytes + 14, &file.crc32, 4);
     memcpy(bytes + 18, &file.compressed_size, 4);
     memcpy(bytes + 22, &file.uncompressed_size, 4);

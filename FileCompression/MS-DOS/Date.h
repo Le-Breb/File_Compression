@@ -5,8 +5,8 @@ namespace MS_DOS
 {
     class Date
     {
-        const unsigned char bytes_[2];
     public:
+        const unsigned char bytes_[2];
         explicit Date(const unsigned char bytes[2]) : bytes_{ bytes[0], bytes[1] } {}
         Date(unsigned short year, unsigned short month, unsigned short day);
         unsigned short get_year() const;
