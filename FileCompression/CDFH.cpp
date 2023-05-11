@@ -39,7 +39,7 @@ CDFH::CDFH(const LFH& lfh, unsigned short file_comment_length, unsigned short di
     
 }
 
-CDFH::CDFH(std::ifstream& in, int offset)
+CDFH::CDFH(std::ifstream& in, const int offset)
 {
     in.seekg(offset);
     int signature_check = 0;
@@ -110,24 +110,25 @@ std::tuple<char*, int> CDFH::build_from(const File& file, const int relative_off
     char* bytes = new char[byte_size];
 
     memcpy(bytes, &signature, 4);
-    memcpy(bytes + 4, &file.version_needed_to_extract, 2);
-    memcpy(bytes + 6, &file.general_purpose_bit_flag, 2);
-    memcpy(bytes + 8, &file.compression_method, 2);
-    memcpy(bytes + 10, &file.last_mod_file_time->bytes, 2);
-    memcpy(bytes + 12, &file.last_mod_file_date->bytes_, 2);
-    memcpy(bytes + 14, &file.crc32, 4);
-    memcpy(bytes + 18, &file.compressed_size, 4);
-    memcpy(bytes + 22, &file.uncompressed_size, 4);
-    memcpy(bytes + 26, &file.file_name_length, 2);
-    memcpy(bytes + 28, &file.extra_field_length, 2);
-    memcpy(bytes + 30, &file.file_comment_length, 2);
-    memcpy(bytes + 32, &file.disk_number_start, 2);
-    memcpy(bytes + 34, &file.internal_file_attributes, 2);
-    memcpy(bytes + 36, &file.external_file_attributes, 4);
-    memcpy(bytes + 40, &relative_offset_of_local_header, 4);
-    memcpy(bytes + 44, file.file_name, file.file_name_length);
-    memcpy(bytes + 44 + file.file_name_length, file.extra_field, file.extra_field_length);
-    memcpy(bytes + 44 + file.file_name_length + file.extra_field_length, file.file_comment, file.file_comment_length);
+    memcpy(bytes + 4, &ZipFile::current_version, 2);
+    memcpy(bytes + 6, &file.version_needed_to_extract, 2);
+    memcpy(bytes + 8, &file.general_purpose_bit_flag, 2);
+    memcpy(bytes + 10, &file.compression_method, 2);
+    memcpy(bytes + 12, &file.last_mod_file_time->bytes, 2);
+    memcpy(bytes + 14, &file.last_mod_file_date->bytes_, 2);
+    memcpy(bytes + 16, &file.crc32, 4);
+    memcpy(bytes + 20, &file.compressed_size, 4);
+    memcpy(bytes + 24, &file.uncompressed_size, 4);
+    memcpy(bytes + 28, &file.file_name_length, 2);
+    memcpy(bytes + 30, &file.extra_field_length, 2);
+    memcpy(bytes + 32, &file.file_comment_length, 2);
+    memcpy(bytes + 34, &file.disk_number_start, 2);
+    memcpy(bytes + 36, &file.internal_file_attributes, 2);
+    memcpy(bytes + 38, &file.external_file_attributes, 4);
+    memcpy(bytes + 42, &relative_offset_of_local_header, 4);
+    memcpy(bytes + 46, file.file_name, file.file_name_length);
+    memcpy(bytes + 46 + file.file_name_length, file.extra_field, file.extra_field_length);
+    memcpy(bytes + 46 + file.file_name_length + file.extra_field_length, file.file_comment, file.file_comment_length);
 
     return std::make_tuple(bytes, byte_size);
 }
