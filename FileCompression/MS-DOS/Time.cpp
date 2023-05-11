@@ -2,7 +2,7 @@
 
 namespace MS_DOS
 {
-    unsigned short MS_DOS::Time::get_second() const
+    unsigned short Time::get_second() const
     {
         return (bytes[0] & 0b00011111) * 2;
     }
@@ -12,17 +12,17 @@ namespace MS_DOS
         return Time{ time.bytes };
     }
 
-    unsigned short MS_DOS::Time::get_minute() const
+    unsigned short Time::get_minute() const
     {
-        return (bytes[1] >> 5) + ((bytes[1] & 0b00000001) << 3);
+        return (bytes[0] >> 5) + ((bytes[1] & 0b00000111) << 3);
     }
 
     Time::Time(unsigned short hour, unsigned short minute, unsigned short second) : bytes
         {static_cast<unsigned char>((second / 2) | ((minute & 0b00000111) << 5)),
-         static_cast<unsigned char>(((minute & 0b00001000) >> 3) | (hour << 3))}
+         static_cast<unsigned char>(((minute & 0b00111000) >> 3) | (hour << 3))}
     { }
 
-    unsigned short MS_DOS::Time::get_hour() const
+    unsigned short Time::get_hour() const
     {
         return bytes[1] >> 3;
     }
