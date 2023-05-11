@@ -1,9 +1,10 @@
 ﻿#include "ZipFile.h"
 
+#include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <map>
+#include <Windows.h>
 
 #include "EOCD.h"
 #include "File.h"
@@ -51,23 +52,28 @@ void ZipFile::list_files() const
 
 MS_DOS::Date ZipFile::get_date_from_system()
 {
-    
-    time_t now = time(0);
+    const time_t now = time(nullptr);
 #pragma warning(disable:4996)
-    tm* ltm = localtime(&now);
+    const tm* ltm = localtime(&now);
 #pragma warning(default:4996)
-    auto b = localtime_s(ltm, &now);
-    
-    return MS_DOS::Date(ltm->tm_year + 1900, ltm->tm_mon + 1, ltm->tm_mday);
+
+    return {
+        static_cast<unsigned short>(ltm->tm_year + 1900), static_cast<unsigned short>(ltm->tm_mon + 1),
+        static_cast<unsigned short>(ltm->tm_mday)
+    };
 }
 
 MS_DOS::Time ZipFile::get_time_from_system()
 {
-    time_t now = time(0);
+    const time_t now = time(0);
 #pragma warning(disable:4996)
-    tm* ltm = localtime(&now);
+    const tm* ltm = localtime(&now);
 #pragma warning(default:4996)
-    return MS_DOS::Time(ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+    
+    return {
+        static_cast<unsigned short>(ltm->tm_hour), static_cast<unsigned short>(ltm->tm_min),
+                        static_cast<unsigned short>(ltm->tm_sec)
+    };
 }
 
 ZipFile::~ZipFile()
@@ -84,15 +90,29 @@ void ZipFile::write_empty_zip_file(const char* filename)
 {
     std::ofstream outfile;
     outfile.open(filename, std::ios::binary | std::ios::out);
-    EOCD eocd = EOCD();
-    char* eocd_bytes = eocd.to_bytes();
+    const EOCD eocd = EOCD();
+    const char* eocd_bytes = eocd.to_bytes();
     outfile.write(eocd_bytes, eocd.byte_size);
     outfile.close();
 }
 
 void ZipFile::add_file(const char* filename)
 {
-    File* file = new File(filename, Fields::compression_method::Stored, *creation_time_, *creation_date_);
+    const std::filesystem::path path = filename;
+    
+    WIN32_FILE_ATTRIBUTE_DATA file_info;
+    GetFileAttributesExA(filename, GetFileExInfoStandard, &file_info);
+    SYSTEMTIME ft;
+    FileTimeToSystemTime(&file_info.ftLastWriteTime, &ft);
+    const MS_DOS::Date last_modification_date(ft);
+    const MS_DOS::Time last_modification_time(ft);
+
+    const bool is_apparently_text = path.extension() == ".txt";
+    const unsigned int external_attributes = file_info.dwFileAttributes;
+    
+    File* file = new File(filename, Fields::compression_method::Stored, last_modification_time, last_modification_date,
+        is_apparently_text, external_attributes);
+    
     files.push_back(file);
 }
 
@@ -103,7 +123,7 @@ void ZipFile::write(const char* filename) const
     std::map<File*, int> file_offsets;
     int offset = 0;
 
-    // Write all files
+    // Write all files with their LFH
     for (auto file : files)
     {
         std::tuple<char*, int> lfh_bytes_and_size = LFH::build_from(*file);
@@ -121,7 +141,6 @@ void ZipFile::write(const char* filename) const
         const int relative_offset_of_local_header = file_offsets[file];
         std::tuple<char*, int> cdfh_bytes_and_size = CDFH::build_from(*file, relative_offset_of_local_header);
         outfile.write(std::get<0>(cdfh_bytes_and_size), std::get<1>(cdfh_bytes_and_size));
-        outfile.write(file->compressed_data, file->compressed_size);
         offset += std::get<1>(cdfh_bytes_and_size);
         delete std::get<0>(cdfh_bytes_and_size);
     }

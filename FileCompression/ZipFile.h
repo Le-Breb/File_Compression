@@ -19,8 +19,8 @@ private:
     void list_files() const;
     MS_DOS::Date* creation_date_;
     MS_DOS::Time* creation_time_;
-    MS_DOS::Date get_date_from_system();
-    MS_DOS::Time get_time_from_system();
+    static MS_DOS::Date get_date_from_system();
+    static MS_DOS::Time get_time_from_system();
 public:
     static constexpr unsigned int current_version = 20;
     static constexpr unsigned int disk_number = 0;
