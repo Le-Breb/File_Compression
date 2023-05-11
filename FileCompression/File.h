@@ -29,7 +29,8 @@ public:
     ~File();
     explicit File(std::ifstream& in, const CDFH& cdfh);
     explicit File(const char* path,
-                  ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date);
+                  ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time,
+                  const MS_DOS::Date& last_mod_file_date, bool is_apparently_text, unsigned int external_attributes);
     std::tuple<char*, int> get_compressed_data(const char* data, int file_size);
     const std::tuple<char*, int> get_uncompressed_data(char* data, int compressed_file_size) const;
     friend std::ostream& operator<<(std::ostream& os, const File& file);

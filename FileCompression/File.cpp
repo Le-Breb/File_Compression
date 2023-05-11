@@ -38,7 +38,9 @@ File::File(std::ifstream& in, const CDFH& cdfh)
     in.read(compressed_data, compressed_size);
 }
 
-File::File(const char* path, ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date)
+File::File(const char* path, ZipFile::Fields::compression_method compression_method,
+           const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
+           const bool is_apparently_text, const unsigned int external_attributes)
 {
     std::ifstream in(path);
     if (!in.is_open()) throw std::exception("File not found");
@@ -64,8 +66,8 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     extra_field_length = 0;
     file_comment_length = 0;
     disk_number_start = 0;
-    internal_file_attributes = 0;
-    external_file_attributes = 0;
+    internal_file_attributes = is_apparently_text;
+    external_file_attributes = external_attributes;
     file_name = path;
     extra_field = nullptr;
     file_comment = nullptr;
