@@ -1,0 +1,38 @@
+﻿text adapted from https://blog.za3k.com/understanding-gzip-2/
+
+reading a compressed DEFLATE stream :
+
+We read bit per bit. We reverse all the bits of the input bytes and we read that.
+Ex : 2b 3a as input => 00101011 00111010 b => 11010100 01011100 will be what we'll read
+Every 'fixed number' value we read must be inversed back. In the previous example, the compression method
+is indicated by bytes 1 et 2, 01. As this is a fixed number, we reverse the bits to read the actual value, 10.
+So this example uses fixed Huffman coding.
+
+first bit indicates if it's last block
+the two next one indicate the compression method.
+
+For Fixed Huffman coding :
+
+We read a byte (does not have to be byte-aligned)
+We subtract the base value of its range.
+If it belongs to a length range, we add 257. We look up in the table which length this indicates. If extra bits are needed,
+we read them (they are fixed number, they need to be bit-reversed). This gives us the length. Then we read bits to determine the
+distance. The process is exactly the same that for reading a length code.
+If the byte is 
+Otherwise, we add the corresponding ASCII character to the output stream.
+If the byte we read is 0, it is end-of-block (256).
+
+For Dynamic Huffman coding :
+
+5 bits: Number of literal/length codes (257-286). We read in forward order and add 257
+to get the actual value.
+5 bits : Number of distance codes (1-32). Same as above.
+4 bits : Number of code length codes (4-19). Same as above.  This number is now called 'q'
+Read q groups of 3 bits. The 19 - q missing ones are 0s. They are ordered in the strange order starting by 16.
+A 0 means a codeword is not used. We can then assign a codeword of length N to each length N in the list,
+using the properties of canonical Huffman trees (the algorithm is detailed in the RFC)
+We now need to read the literal/length codes. We decode them with the results of the previous step.
+This step gives us the code length for the literal/length codes. We now assign them their actual code using
+the properties of canonical Huffman trees (the algorithm is detailed in the RFC).
+Repeat the exact same process for processing the distance codewords.
+Finally decode the rest of the data thanks to the processed information.
