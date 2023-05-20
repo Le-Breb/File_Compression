@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-std::tuple<bool, std::tuple<char*, int>> Deflate::decompress_block(StreamReader& reader)
+std::tuple<bool, std::tuple<char*, int>> Deflate::decompress_block(Stream_Reader& reader)
 {
     std::tuple<char*, int> decompressed_block;
     const bool is_final_block = reader.read_bits(1)[0];
@@ -30,7 +30,7 @@ std::tuple<bool, std::tuple<char*, int>> Deflate::decompress_block(StreamReader&
     return {is_final_block, decompressed_block};
 }
 
-std::tuple<char*, int> Deflate::get_stored_data(StreamReader& reader)
+std::tuple<char*, int> Deflate::get_stored_data(Stream_Reader& reader)
 {
     reader.skip_end_of_byte();
     const auto len = static_cast<short>(reader.read_number(16));
@@ -42,14 +42,29 @@ std::tuple<char*, int> Deflate::get_stored_data(StreamReader& reader)
     return {bytes, len};
 }
 
-std::tuple<char*, int> Deflate::get_fixed_huffman_data(StreamReader& reader)
+std::tuple<char*, int> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
+{
+    int lit_len = 1;
+}
+
+std::tuple<char*, int> Deflate::get_dynamic_huffman_data(Stream_Reader& reader)
 {
     throw std::exception("Not implemented yet!");
 }
 
-std::tuple<char*, int> Deflate::get_dynamic_huffman_data(StreamReader& reader)
+void Deflate::build_static_huffman_tree()
 {
-    throw std::exception("Not implemented yet!");
+    std::map<char, std::pair<int, int>> keys_paths;
+    for (int i = 0b00110000; i <= 10111111; i++)
+        keys_paths[static_cast<char>(i)] = {i, 8};
+    for (int i = 0b110010000; i <= 111111111; i++)
+        keys_paths[static_cast<char>(i)] = {i, 9};
+    for (int i = 0b0000000; i <= 0010111; i++)
+        keys_paths[static_cast<char>(i)] = {i, 7};
+    for (int i = 0b11000000; i <= 11000111; i++)
+        keys_paths[static_cast<char>(i)] = {i, 8};
+
+    static_huffman_tree_ = Huffman_Tree(keys_paths);
 }
 
 std::tuple<char*, int> Deflate::compress(const unsigned char* data, const int size)
@@ -68,7 +83,7 @@ std::tuple<char*, int> Deflate::decompress(const unsigned char* data, const int 
     {
         int off = offset;
         std::vector<std::tuple<char*, int>> decompressed_blocks;
-        StreamReader reader(data, offset);
+        Stream_Reader reader(data, offset);
         std::tuple<bool, std::tuple<char*, int>> decompression;
         do
         {

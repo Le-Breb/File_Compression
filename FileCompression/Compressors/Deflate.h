@@ -2,18 +2,21 @@
 #include <tuple>
 #include <vector>
 
+#include "Huffman_Tree/Huffman_Tree.h"
+
 class Deflate
 {
+public:
     /**
      * \brief Reader for compressed DEFLATE data.
      */
-    class StreamReader
+    class Stream_Reader
     {
         unsigned byte_offset_;
         unsigned bit_index_ = 0;
         const unsigned char* data_;
     public:
-        StreamReader(const unsigned char* data, const unsigned offset) : byte_offset_{ offset }, data_ { data } {}
+        Stream_Reader(const unsigned char* data, const unsigned offset) : byte_offset_{ offset }, data_ { data } {}
 
         /**
          * \brief Moves the reader to the next byte
@@ -37,6 +40,18 @@ class Deflate
             std::reverse(bits.begin(), bits.end());
 
             return bits;
+        }
+
+        bool read_bit()
+        {
+            const bool bit = data_[byte_offset_] & (1 << bit_index_++);
+            if (bit_index_ == 8)
+            {
+                bit_index_ = 0;
+                ++byte_offset_;
+            }
+
+            return bit;
         }
 
         /**
@@ -85,17 +100,19 @@ class Deflate
         {
             char* bytes = new char[count];
             for (int i = 0; i < count; i++)
-                bytes[i] = data_[byte_offset_++];
+                bytes[i] = static_cast<char>(data_[byte_offset_++]);
 
             return bytes;
         }
     };
-    
-    static std::tuple<bool, std::tuple<char*, int>> decompress_block(StreamReader& reader);
-    static std::tuple<char*, int> get_stored_data(StreamReader& reader);
-    static std::tuple<char*, int> get_fixed_huffman_data(StreamReader& reader);
-    static std::tuple<char*, int> get_dynamic_huffman_data(StreamReader& reader);
-public:
     static std::tuple<char*, int> compress(const unsigned char* data, int size);
     static std::tuple<char*, int> decompress(const unsigned char* data, int offset);
+
+private:
+    static std::tuple<bool, std::tuple<char*, int>> decompress_block(Stream_Reader& reader);
+    static std::tuple<char*, int> get_stored_data(Stream_Reader& reader);
+    static std::tuple<char*, int> get_fixed_huffman_data(Stream_Reader& reader);
+    static std::tuple<char*, int> get_dynamic_huffman_data(Stream_Reader& reader);    
+    static Huffman_Tree static_huffman_tree_;
+    static void build_static_huffman_tree();
 };
