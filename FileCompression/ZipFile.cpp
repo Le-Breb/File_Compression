@@ -94,6 +94,7 @@ void ZipFile::write_empty_zip_file(const char* filename)
     const char* eocd_bytes = eocd.to_bytes();
     outfile.write(eocd_bytes, eocd.byte_size);
     outfile.close();
+    delete eocd_bytes;
 }
 
 void ZipFile::add_file(const char* filename)
@@ -110,7 +111,7 @@ void ZipFile::add_file(const char* filename)
     const bool is_apparently_text = path.extension() == ".txt";
     const unsigned int external_attributes = file_info.dwFileAttributes;
     
-    File* file = new File(filename, Fields::compression_method::Stored, last_modification_time, last_modification_date,
+    File* file = new File(filename, Fields::compression_method::Deflated, last_modification_time, last_modification_date,
         is_apparently_text, external_attributes);
     
     files.push_back(file);
@@ -120,6 +121,8 @@ void ZipFile::write(const char* filename) const
 {
     std::ofstream outfile;
     outfile.open(filename, std::ios::binary | std::ios::out);
+    if (!outfile.is_open())
+        throw new std::exception("Could not open file for writing");
     std::map<File*, int> file_offsets;
     int offset = 0;
 
@@ -163,7 +166,7 @@ ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_dat
     if (!in.is_open()) throw std::exception("File not found");
 
     EOCD* eocd = find_eocd(in);
-    std::cout << *eocd << std::endl;
+    //std::cout << *eocd << std::endl;
     register_files(in, eocd->offset_of_start_of_central_directory, eocd->size_of_the_central_directory);
     list_files();
     

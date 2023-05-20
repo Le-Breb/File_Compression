@@ -51,11 +51,11 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     in.read(data, file_size);
     in.close();
 
+    this->compression_method = compression_method;
     const auto compressed_data_and_size = get_compressed_data(data, file_size);
 
     version_needed_to_extract = static_cast<ZipFile::Fields::version_needed_to_extract>(ZipFile::current_version);
     general_purpose_bit_flag = ZipFile::Fields::general_purpose_bit_flag::None;
-    this->compression_method = compression_method;
     this->last_mod_file_time = new MS_DOS::Time(last_mod_file_time);
     this->last_mod_file_date = new MS_DOS::Date(last_mod_file_date);
     compressed_size = std::get<1>(compressed_data_and_size);
@@ -95,10 +95,9 @@ std::tuple<char*, int> File::get_compressed_data(const char* data, int file_size
         case ZipFile::Fields::compression_method::Reserved_1: break;
         case ZipFile::Fields::compression_method::Deflated:
             {
-                throw std::exception("aled");
-                /*compressed_data = new char [] {'K', 'w', 'Y', 'A'};
-                compressed_size = 4;
-                return {compressed_data, 4};
+                compressed_data = new char [] {43,46,-122,1,0}; //-122 = 134
+                compressed_size = 5;
+                return {compressed_data, compressed_size};/*
                 std::tuple<char*, int> r = Deflate::compress(data, file_size);
                 compressed_size = std::get<1>(r);
                 compressed_data = std::get<0>(r);
