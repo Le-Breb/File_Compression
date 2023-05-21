@@ -129,12 +129,12 @@ void ZipFile::write(const char* filename) const
     // Write all files with their LFH
     for (auto file : files)
     {
-        std::tuple<char*, int> lfh_bytes_and_size = LFH::build_from(*file);
-        outfile.write(std::get<0>(lfh_bytes_and_size), std::get<1>(lfh_bytes_and_size));
+        const std::pair<char*, int> lfh_bytes_and_size = LFH::build_from(*file);
+        outfile.write(lfh_bytes_and_size.first, lfh_bytes_and_size.second);
         outfile.write(file->compressed_data, file->compressed_size);
         file_offsets[file] = offset;
-        offset += std::get<1>(lfh_bytes_and_size) + file->compressed_size;
-        delete std::get<0>(lfh_bytes_and_size);
+        offset += lfh_bytes_and_size.second + file->compressed_size;
+        delete lfh_bytes_and_size.first;
     }
     const int cd_start_offset = offset;
 
@@ -142,10 +142,10 @@ void ZipFile::write(const char* filename) const
     for (auto file : files)
     {
         const int relative_offset_of_local_header = file_offsets[file];
-        std::tuple<char*, int> cdfh_bytes_and_size = CDFH::build_from(*file, relative_offset_of_local_header);
-        outfile.write(std::get<0>(cdfh_bytes_and_size), std::get<1>(cdfh_bytes_and_size));
-        offset += std::get<1>(cdfh_bytes_and_size);
-        delete std::get<0>(cdfh_bytes_and_size);
+        std::pair<char*, int> cdfh_bytes_and_size = CDFH::build_from(*file, relative_offset_of_local_header);
+        outfile.write(cdfh_bytes_and_size.first, cdfh_bytes_and_size.second);
+        offset += cdfh_bytes_and_size.second;
+        delete cdfh_bytes_and_size.first;
     }
 
     const int cd_size = offset - cd_start_offset;

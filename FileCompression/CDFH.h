@@ -49,7 +49,7 @@ public:
 
     char* to_bytes() const;
 
-    static std::tuple<char*, int> build_from(const File& file, const int relative_offset_of_local_header);
+    static std::pair<char*, int> build_from(const File& file, const int relative_offset_of_local_header);
 
     ~CDFH();
 };

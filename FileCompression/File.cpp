@@ -58,7 +58,7 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     general_purpose_bit_flag = ZipFile::Fields::general_purpose_bit_flag::None;
     this->last_mod_file_time = new MS_DOS::Time(last_mod_file_time);
     this->last_mod_file_date = new MS_DOS::Date(last_mod_file_date);
-    compressed_size = std::get<1>(compressed_data_and_size);
+    compressed_size = compressed_data_and_size.second;
     uncompressed_size = file_size;
     const CRC32 crc32;
     this->crc32 = crc32.compute(data, uncompressed_size);
@@ -72,12 +72,12 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     extra_field = nullptr;
     file_comment = nullptr;
 
-    compressed_data = std::get<0>(compressed_data_and_size);
+    compressed_data = compressed_data_and_size.first;
     
     delete[] data;
 }
 
-std::tuple<char*, int> File::get_compressed_data(const char* data, int file_size)
+std::pair<char*, int> File::get_compressed_data(const char* data, int file_size)
 {
     char* compressed_data = new char[file_size];
     switch (compression_method)
@@ -127,7 +127,7 @@ std::tuple<char*, int> File::get_compressed_data(const char* data, int file_size
     throw std::exception("Not implemented");
 }
 
-const std::tuple<char*, int> File::get_uncompressed_data(char* data, int compressed_file_size) const
+std::pair<char*, int> File::get_uncompressed_data(char* data, int compressed_file_size) const
 {
     switch (compression_method) {
         case ZipFile::Fields::compression_method::Stored: break;

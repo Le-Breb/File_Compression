@@ -57,7 +57,7 @@ LFH::~LFH()
     //delete last_mod_file_date;
 }
 
-std::tuple<char*, int> LFH::build_from(const File& file)
+std::pair<char*, int> LFH::build_from(const File& file)
 {
     int byte_size = 30 + file.file_name_length + file.extra_field_length;
     char* bytes = new char[byte_size];

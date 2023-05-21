@@ -104,7 +104,7 @@ char* CDFH::to_bytes() const
     return buffer;
 }
 
-std::tuple<char*, int> CDFH::build_from(const File& file, const int relative_offset_of_local_header)
+std::pair<char*, int> CDFH::build_from(const File& file, const int relative_offset_of_local_header)
 {
     int byte_size = 46 + file.file_name_length + file.extra_field_length + file.file_comment_length;
     char* bytes = new char[byte_size];
@@ -130,7 +130,7 @@ std::tuple<char*, int> CDFH::build_from(const File& file, const int relative_off
     memcpy(bytes + 46 + file.file_name_length, file.extra_field, file.extra_field_length);
     memcpy(bytes + 46 + file.file_name_length + file.extra_field_length, file.file_comment, file.file_comment_length);
 
-    return std::make_tuple(bytes, byte_size);
+    return {bytes, byte_size};
 }
 
 CDFH::~CDFH()

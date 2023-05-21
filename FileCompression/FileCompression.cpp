@@ -34,12 +34,12 @@ std::bitset<N> reverse(const std::bitset<N> &bit_set) {
 int main(int argc, char* argv[])
 {
 
-    const auto data = new unsigned char[] {0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57, 0xc8, 0x40, 0x27, 0xb9, 0x00};
-    auto decompressed_data = Deflate::decompress(data, 0);
-    auto a = std::get<0>(decompressed_data);
-    for (int i = 0; i < std::get<1>(decompressed_data); i++)
-        std::cout << std::hex << (unsigned char)std::get<0>(decompressed_data)[i];
-    return 0;
+    /*const auto data = new unsigned char[] {0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57, 0xc8, 0x40, 0x27, 0xb9, 0x00};
+    const auto decompressed_data = Deflate::decompress(data, 0);
+    auto a = decompressed_data.first;
+    for (int i = 0; i < decompressed_data.second; i++)
+        std::cout << std::hex << static_cast<unsigned char>(decompressed_data.first[i]);
+    return 0;*/
     /*std::map<char, int> t;
     t['a'] = 4;
     t['b'] = 4;
