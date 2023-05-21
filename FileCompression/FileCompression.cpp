@@ -6,6 +6,7 @@
 
 #include "CRC32.h"
 #include "ZipFile.h"
+#include "Compressors/Deflate.h"
 #include "Compressors/Huffman_Tree/Huffman_Tree.h"
 void show_file_content(const char* path)
 {
@@ -17,12 +18,28 @@ void show_file_content(const char* path)
     char* data = new char[size];
     in.read(data, size);
     for (int i = 0; i < size; i++)
-        std::cout << std::hex << *(data + i);
+        std::cout <<(unsigned char)*(data + i);
     std::cout << std::endl;
+}
+
+template<std::size_t N>
+std::bitset<N> reverse(const std::bitset<N> &bit_set) {
+    std::bitset<N> reversed;
+    for (int i = 0, j = N - 1; i < N; i++, j--) {
+        reversed[j] = bit_set[i];
+    }
+    return reversed;
 }
 
 int main(int argc, char* argv[])
 {
+
+    const auto data = new unsigned char[] {0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57, 0xc8, 0x40, 0x27, 0xb9, 0x00};
+    auto decompressed_data = Deflate::decompress(data, 0);
+    auto a = std::get<0>(decompressed_data);
+    for (int i = 0; i < std::get<1>(decompressed_data); i++)
+        std::cout << std::hex << (unsigned char)std::get<0>(decompressed_data)[i];
+    return 0;
     /*std::map<char, int> t;
     t['a'] = 4;
     t['b'] = 4;
@@ -30,15 +47,18 @@ int main(int argc, char* argv[])
     t['e'] = 1;
     t['t'] = 5;
     Huffman_Tree huffman_tree(t);*/
+    std::cout<< std::hex << 43 << ' ' << 46 << ' ' << 134 << ' ' << 1 << ' ' << 0 << std::endl;
+    std::cout << std::bitset<8>(43) << ' ' << std::bitset<8>(46) << ' ' << std::bitset<8>(134) << ' ' << std::bitset<8>(1) << ' ' << std::bitset<8>(0) << std::endl;
+    std::cout << reverse(std::bitset<8>(43)) << ' ' << reverse(std::bitset<8>(46)) << ' ' << reverse(std::bitset<8>(134)) << ' ' << reverse(std::bitset<8>(1)) << ' ' << reverse(std::bitset<8>(0)) << std::endl;
     ZipFile zip_file;
-    zip_file.add_file("someData.txt");
-    zip_file.write("someData_.zip");
-    show_file_content("someData_.zip");
-    show_file_content("someData.zip");
-    ZipFile zip_file2("someData.zip");
+    zip_file.add_file("someData - Copie.txt");
+    zip_file.write("someData_ - Copie.zip");
+    show_file_content("someData_ - Copie.zip");
+    show_file_content("someData - Copie.zip");
+    ZipFile zip_file2("someData_ - Copie.zip");
     
     return 0;
-}
+}//Todo: make window cross blocks
 
 
 
