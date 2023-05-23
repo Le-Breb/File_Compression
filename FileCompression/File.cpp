@@ -38,12 +38,12 @@ File::File(std::ifstream& in, const CDFH& cdfh)
     in.read(compressed_data, compressed_size);
 }
 
-File::File(const char* path, ZipFile::Fields::compression_method compression_method,
-           const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
-           const bool is_apparently_text, const unsigned int external_attributes)
+File::File(const char *path_on_disk, ZipFile::Fields::compression_method compression_method,
+           const MS_DOS::Time &last_mod_file_time, const MS_DOS::Date &last_mod_file_date,
+           const bool is_apparently_text, const unsigned int external_attributes, const char *path_in_zip)
 {
-    std::ifstream in(path);
-    if (!in.is_open()) throw std::exception("File not found");
+    std::ifstream in(path_on_disk);
+    if (!in.is_open()) throw std::runtime_error("File not found");
     in.seekg(0, std::ios::end);
     const int file_size = in.tellg();
     char* data = new char[file_size];
@@ -62,13 +62,13 @@ File::File(const char* path, ZipFile::Fields::compression_method compression_met
     uncompressed_size = file_size;
     const CRC32 crc32;
     this->crc32 = crc32.compute(data, uncompressed_size);
-    file_name_length = strlen(path);
+    file_name_length = strlen(path_in_zip);
     extra_field_length = 0;
     file_comment_length = 0;
     disk_number_start = 0;
     internal_file_attributes = is_apparently_text;
     external_file_attributes = external_attributes;
-    file_name = path;
+    file_name = path_in_zip;
     extra_field = nullptr;
     file_comment = nullptr;
 
@@ -121,10 +121,10 @@ std::pair<char*, int> File::get_compressed_data(const char* data, int file_size)
         case ZipFile::Fields::compression_method::PPMD: break;
         case ZipFile::Fields::compression_method::AE_x: break;
         case ZipFile::Fields::compression_method::Unknown: break;
-        default: throw std::exception("Unknown compression method");
+        default: throw std::runtime_error("Unknown compression method");
     }
 
-    throw std::exception("Not implemented");
+    throw std::runtime_error("Not implemented");
 }
 
 std::pair<char*, int> File::get_uncompressed_data(char* data, int compressed_file_size) const
@@ -160,7 +160,7 @@ std::pair<char*, int> File::get_uncompressed_data(char* data, int compressed_fil
         default: ;
     }
 
-    throw new std::exception("Not implemented");
+    throw new std::runtime_error("Not implemented");
 }
 
 std::ostream& operator<<(std::ostream& os, const File& file)

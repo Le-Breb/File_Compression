@@ -305,7 +305,7 @@ public:
 
     static void write_empty_zip_file(const char* filename);
 
-    void add_file(const char* filename);
+    void add_file(const char *path_on_disk, const char *path_in_zip);
 
     void write(const char* filename) const;
 

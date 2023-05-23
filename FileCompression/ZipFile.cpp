@@ -97,12 +97,12 @@ void ZipFile::write_empty_zip_file(const char* filename)
     delete eocd_bytes;
 }
 
-void ZipFile::add_file(const char* filename)
+void ZipFile::add_file(const char *path_on_disk, const char *path_in_zip)
 {
-    const std::filesystem::path path = filename;
+    const std::filesystem::path path = path_on_disk;
     
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    GetFileAttributesExA(filename, GetFileExInfoStandard, &file_info);
+    GetFileAttributesExA(path_on_disk, GetFileExInfoStandard, &file_info);
     SYSTEMTIME ft;
     FileTimeToSystemTime(&file_info.ftLastWriteTime, &ft);
     const MS_DOS::Date last_modification_date(ft);
@@ -111,8 +111,9 @@ void ZipFile::add_file(const char* filename)
     const bool is_apparently_text = path.extension() == ".txt";
     const unsigned int external_attributes = file_info.dwFileAttributes;
     
-    File* file = new File(filename, Fields::compression_method::Deflated, last_modification_time, last_modification_date,
-        is_apparently_text, external_attributes);
+    File* file = new File(path_on_disk, Fields::compression_method::Deflated, last_modification_time,
+                          last_modification_date,
+                          is_apparently_text, external_attributes, path_in_zip);
     
     files.push_back(file);
 }
@@ -122,7 +123,7 @@ void ZipFile::write(const char* filename) const
     std::ofstream outfile;
     outfile.open(filename, std::ios::binary | std::ios::out);
     if (!outfile.is_open())
-        throw new std::exception("Could not open file for writing");
+        throw new std::runtime_error("Could not open file for writing");
     std::map<File*, int> file_offsets;
     int offset = 0;
 
@@ -163,7 +164,7 @@ ZipFile::ZipFile() : creation_date_(new MS_DOS::Date(get_date_from_system())), c
 ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_date_from_system())), creation_time_(new MS_DOS::Time(get_time_from_system()))
 {
     std::ifstream in(filename, std::ios::binary | std::ios::in);
-    if (!in.is_open()) throw std::exception("File not found");
+    if (!in.is_open()) throw std::runtime_error("File not found");
 
     EOCD* eocd = find_eocd(in);
     //std::cout << *eocd << std::endl;

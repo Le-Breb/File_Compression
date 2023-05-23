@@ -11,7 +11,7 @@
 void show_file_content(const char* path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary);
-    if (!in.is_open()) throw std::exception("unable to open file");
+    if (!in.is_open()) throw std::runtime_error("unable to open file");
     in.seekg(0, std::ios::end);
     const size_t size = in.tellg();
     in.seekg(0);
@@ -47,15 +47,15 @@ int main(int argc, char* argv[])
     t['e'] = 1;
     t['t'] = 5;
     Huffman_Tree huffman_tree(t);*/
-    std::cout<< std::hex << 43 << ' ' << 46 << ' ' << 134 << ' ' << 1 << ' ' << 0 << std::endl;
+    std::cout<< std::hex << 43 << ' ' << 46 << ' ' << 134 << ' ' << 1 << ' ' << 0 << std::dec << std::endl;
     std::cout << std::bitset<8>(43) << ' ' << std::bitset<8>(46) << ' ' << std::bitset<8>(134) << ' ' << std::bitset<8>(1) << ' ' << std::bitset<8>(0) << std::endl;
     std::cout << reverse(std::bitset<8>(43)) << ' ' << reverse(std::bitset<8>(46)) << ' ' << reverse(std::bitset<8>(134)) << ' ' << reverse(std::bitset<8>(1)) << ' ' << reverse(std::bitset<8>(0)) << std::endl;
     ZipFile zip_file;
-    zip_file.add_file("someData - Copie.txt");
-    zip_file.write("someData_ - Copie.zip");
-    show_file_content("someData_ - Copie.zip");
-    show_file_content("someData - Copie.zip");
-    ZipFile zip_file2("someData_ - Copie.zip");
+    zip_file.add_file("../Data/someData - Copie.txt", "AFolder/someData - Copie.txt");
+    zip_file.write("../Data/someData_ - Copie.zip");
+    show_file_content("../Data/someData_ - Copie.zip");
+    show_file_content("../Data/someData - Copie.zip");
+    ZipFile zip_file2("../Data/someData_ - Copie.zip");
     
     return 0;
 }//Todo: make window cross blocks
