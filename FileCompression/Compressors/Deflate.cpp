@@ -17,9 +17,9 @@ std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& read
         case 2:
             return {is_final_block, get_dynamic_huffman_data(reader)};
         case 3:
-            throw std::exception("Reserved block type!");
+            throw std::runtime_error("Reserved block type!");
         default: // Should never happen
-            throw std::exception("Unknown block type!");
+            throw std::runtime_error("Unknown block type!");
     }
 }
 
@@ -29,7 +29,7 @@ std::vector<char> Deflate::get_stored_data(Stream_Reader& reader)
     const auto len = static_cast<short>(reader.read_number(16));
     const auto nlen = static_cast<short>(reader.read_number(16));
     if (len != ~nlen)
-        throw std::exception("Invalid stored block length!");
+        throw std::runtime_error("Invalid stored block length!");
     std::vector<char> bytes = reader.read_bytes_v(len);
 
     return bytes;
@@ -53,7 +53,7 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
             // Distance
             const int dist_value = reader.read_number(5);
             if (dist_value > 29)
-                throw std::exception("Invalid distance!");
+                throw std::runtime_error("Invalid distance!");
             int dist = distances_base_values[dist_value];
             if (const int extra_bits = distances_extra_bits[dist_value])
                 dist += reader.read_number(extra_bits);
@@ -62,7 +62,7 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
                 data.push_back(data[start_index + (i % dist)]);
         }
         else
-            throw std::exception("Invalid fixed huffman code!");
+            throw std::runtime_error("Invalid fixed huffman code!");
 
         lit_len = static_huffman_tree_->read_key(reader);
     }
@@ -72,7 +72,7 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
 
 std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader)
 {
-    throw std::exception("Not implemented yet!");
+    throw std::runtime_error("Not implemented yet!");
 }
 
 void Deflate::build_static_huffman_tree()

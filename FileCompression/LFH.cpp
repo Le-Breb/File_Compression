@@ -29,7 +29,7 @@ LFH::LFH(std::ifstream& in, const unsigned offset)
     int signature_check;
     in.read(reinterpret_cast<char*>(&signature_check), 4);
     if (signature_check != signature)
-        throw std::exception("Invalid signature");
+        throw std::runtime_error("Invalid signature");
     in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
     in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
     in.read(reinterpret_cast<char*>(&compression_method), 2);

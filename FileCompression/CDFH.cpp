@@ -45,7 +45,7 @@ CDFH::CDFH(std::ifstream& in, const int offset)
     int signature_check = 0;
     in.read(reinterpret_cast<char*>(&signature_check), 4);
     if (signature_check != signature)
-        throw std::exception("CDFH signature not found");
+        throw std::runtime_error("CDFH signature not found");
     in.read(reinterpret_cast<char*>(&version_made_by), 2);
     in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
     in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
