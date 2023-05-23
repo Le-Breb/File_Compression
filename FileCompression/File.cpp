@@ -98,7 +98,7 @@ std::pair<char*, int> File::get_compressed_data(const char* data, int file_size)
                 compressed_data = new char [] {43,46,-122,1,0}; //-122 = 134
                 compressed_size = 5;
                 return {compressed_data, compressed_size};/*
-                std::tuple<char*, int> r = Deflate::compress(data, file_size);
+                std::tuple<char*, int> r = Deflate::deflate(data, file_size);
                 compressed_size = std::get<1>(r);
                 compressed_data = std::get<0>(r);
                 return {compressed_data, std::get<1>(r)};*/

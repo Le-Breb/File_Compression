@@ -115,16 +115,19 @@ public:
             return bytes;
         }
     };
-    static std::pair<char*, int> compress(const unsigned char* data, int size);
-    static std::pair<char*, int> decompress(const unsigned char* data, int offset);
+    static std::pair<char*, int> deflate(const unsigned char* data, int size);
+    static std::pair<char*, int> inflate(const unsigned char* data, int offset);
 
 private:
     static std::pair<bool, std::vector<char>> decompress_block(Stream_Reader& reader);
     static std::vector<char> get_stored_data(Stream_Reader& reader);
     static std::vector<char> get_fixed_huffman_data(Stream_Reader& reader);
     static std::vector<char> get_dynamic_huffman_data(Stream_Reader& reader);
+    static std::vector<char> read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree& lit_len_tree, Huffman_Tree& dist_tree);
     inline static Huffman_Tree* static_huffman_tree_ = nullptr;
     static void build_static_huffman_tree();
+    static int*
+    codes_from_code_lengths(const int code_lengths[], int num_codes, int max_code_length);
     static inline std::map<int, int> lengths_base_values_ = {
         { 257, 3 },{ 258, 4 },{ 259, 5 },{ 260, 6 },{ 261, 7 },{ 262, 8 },{ 263, 9 },{ 264, 10 },{ 265, 11 },{ 266, 13 },{ 267, 15 },{ 268, 17 },{ 269, 19 },{ 270, 23 },{ 271, 27 },{ 272, 31 },{ 273, 35 },{ 274, 43 },{ 275, 51 },{ 276, 59 },{ 277, 67 },{ 278, 83 },{ 279, 99 },{ 280, 115 },{ 281, 131 },{ 282, 163 },{ 283, 195 },{ 284, 227 },{ 285, 258 }
     };
@@ -136,5 +139,8 @@ private:
     };
     static inline std::map<int, int> distances_extra_bits = {
         { 0, 0 },{ 1, 0 },{ 2, 0 },{ 3, 0 },{ 4, 1 },{ 5, 1 },{ 6, 2 },{ 7, 2 },{ 8, 3 },{ 9, 3 },{ 10, 4 },{ 11, 4 },{ 12, 5 },{ 13, 5 },{ 14, 6 },{ 15, 6 },{ 16, 7 },{ 17, 7 },{ 18, 8 },{ 19, 8 },{ 20, 9 },{ 21, 9 },{ 22, 10 },{ 23, 10 },{ 24, 11 },{ 25, 11 },{ 26, 12 },{ 27, 12 },{ 28, 13 },{ 29, 13 }
+    };
+    static inline int code_length_codes_order[] = {
+        16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
     };
 };

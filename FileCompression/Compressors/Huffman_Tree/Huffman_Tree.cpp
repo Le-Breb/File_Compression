@@ -5,7 +5,7 @@
 
 void Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_length)
 {
-    if (node.key == 0)
+    if (node.key == -1)
     {
         if (node.left != nullptr)
             generate_chars_of_bit_length(*node.left, bit_length + 1);
@@ -52,20 +52,20 @@ void Huffman_Tree::add(Node* node, const int key, const int path, const int path
     if(path & (1 << (path_length - 1)))
     {
         if(node->right == nullptr)
-            node->right = new Node(0, nullptr, nullptr);
+            node->right = new Node(-1, nullptr, nullptr);
         add(node->right, key, path, path_length - 1);        
     }
     else
     {
         if(node->left == nullptr)
-            node->left = new Node(0, nullptr, nullptr);
+            node->left = new Node(-1, nullptr, nullptr);
         add(node->left, key, path, path_length - 1);
     }
 }
 
 Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
 {
-    root_ = new Node(0, nullptr, nullptr);
+    root_ = new Node(-1, nullptr, nullptr);
 
     for (const auto p : tree)
         add(root_, p.first, p.second.first, p.second.second);
@@ -76,7 +76,7 @@ Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
 int Huffman_Tree::read_key(Deflate::Stream_Reader& reader) const
 {
     const Node* current = root_;
-    while(current->key == 0)
+    while(current->key == -1)
     {
         if (reader.read_bit())
             current = current->right;

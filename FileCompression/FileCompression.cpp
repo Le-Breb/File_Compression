@@ -33,30 +33,19 @@ std::bitset<N> reverse(const std::bitset<N> &bit_set) {
 
 int main(int argc, char* argv[])
 {
-
-    /*const auto data = new unsigned char[] {0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x57, 0xc8, 0x40, 0x27, 0xb9, 0x00};
-    const auto decompressed_data = Deflate::decompress(data, 0);
-    auto a = decompressed_data.first;
-    for (int i = 0; i < decompressed_data.second; i++)
-        std::cout << std::hex << static_cast<unsigned char>(decompressed_data.first[i]);
-    return 0;*/
-    /*std::map<char, int> t;
-    t['a'] = 4;
-    t['b'] = 4;
-    t['c'] = 2;
-    t['e'] = 1;
-    t['t'] = 5;
-    Huffman_Tree huffman_tree(t);*/
-    std::cout<< std::hex << 43 << ' ' << 46 << ' ' << 134 << ' ' << 1 << ' ' << 0 << std::dec << std::endl;
-    std::cout << std::bitset<8>(43) << ' ' << std::bitset<8>(46) << ' ' << std::bitset<8>(134) << ' ' << std::bitset<8>(1) << ' ' << std::bitset<8>(0) << std::endl;
-    std::cout << reverse(std::bitset<8>(43)) << ' ' << reverse(std::bitset<8>(46)) << ' ' << reverse(std::bitset<8>(134)) << ' ' << reverse(std::bitset<8>(1)) << ' ' << reverse(std::bitset<8>(0)) << std::endl;
+    /*const unsigned char data[] = {0x1d, 0xc6, 0x49, 0x01, 0x00, 0x00, 0x10, 0x40, 0xc0, 0xac, 0xa3, 0x7f, 0x88, 0x3d, 0x3c, 0x20, 0x2a, 0x97, 0x9d, 0x37, 0x5e, 0x1d, 0x0c};
+    auto a = Deflate::inflate(data, 0);
+    for (int i = 0; i < a.second; ++i) {
+        std::cout<<a.first[i];
+    }
+    std::cout << std::endl;*/
     ZipFile zip_file;
-    zip_file.add_file("../Data/someData - Copie.txt", "AFolder/someData - Copie.txt");
-    zip_file.write("../Data/someData_ - Copie.zip");
-    show_file_content("../Data/someData_ - Copie.zip");
-    show_file_content("../Data/someData - Copie.zip");
-    ZipFile zip_file2("../Data/someData_ - Copie.zip");
-    
+    zip_file.add_file("../Data/someData.txt", "someData.txt");
+    zip_file.write("../Data/someData_.zip");
+    show_file_content("../Data/someData_.zip");
+    show_file_content("../Data/someData.zip");
+    ZipFile zip_file2("../Data/someData.zip");
+
     return 0;
 }//Todo: make window cross blocks
 
@@ -64,6 +53,7 @@ int main(int argc, char* argv[])
 
 // Doc https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT - https://www.ietf.org/rfc/rfc1951.txt
 //ToDo: Writing bytes directly to file instead of returning them as a char* and then writing them to file
+//ToDo: Procedurally check all dates and times
 
 
 // Reminder : characters are encoded using a canonical huffman tree. This tree is encoded by only writing the code
