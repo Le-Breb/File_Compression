@@ -26,4 +26,4 @@ add_executable(FileCompression
     LFH.cpp
     LFH.h
     ZipFile.cpp
-    ZipFile.h)
+    ZipFile.h Base64.cpp Base64.h)
