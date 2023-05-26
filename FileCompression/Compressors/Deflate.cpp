@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& reader)
+std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& reader, Window& window)
 {
     const bool is_final_block = reader.read_bits(1)[0];
     
@@ -13,9 +13,9 @@ std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& read
         case 0:
             return {is_final_block, get_stored_data(reader)};
         case 1:
-            return {is_final_block, get_fixed_huffman_data(reader)};
+            return {is_final_block, get_fixed_huffman_data(reader, window)};
         case 2:
-            return {is_final_block, get_dynamic_huffman_data(reader)};
+            return {is_final_block, get_dynamic_huffman_data(reader, window)};
         case 3:
             throw std::runtime_error("Reserved block type!");
         default: // Should never happen
@@ -36,15 +36,17 @@ std::vector<char> Deflate::get_stored_data(Stream_Reader& reader)
 }
 
 
-std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
+std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
 {
     std::vector<char> data;
     int lit_len = static_huffman_tree_->read_key(reader);
     while (lit_len != 256)
     {
         // Literal
-        if (lit_len <= 255)
+        if (lit_len <= 255) {
             data.push_back(static_cast<char>(lit_len));
+            window.add(static_cast<char>(lit_len));
+        }
         else if (lit_len <= 287) // Length
         {
             int len = lengths_base_values_[lit_len];
@@ -57,9 +59,11 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
             int dist = distances_base_values[dist_value];
             if (const int extra_bits = distances_extra_bits[dist_value])
                 dist += reader.read_number(extra_bits);
-            const int start_index = static_cast<int>(data.size()) - dist;
-            for (int i = 0; i < len; i++)
-                data.push_back(data[start_index + (i % dist)]);
+            for (int i = 0; i < len; ++i) {
+                char c = window.get(dist); // Current pos increases when we add to window the offset is always dist
+                data.push_back(c);
+                window.add(c);
+            }
         }
         else
             throw std::runtime_error("Invalid fixed huffman code!");
@@ -70,7 +74,7 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader)
     return data;
 }
 
-std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader)
+std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
 {
     std::vector<char> data;
     const int num_lit_len = reader.read_number(5) + 257;
@@ -177,7 +181,7 @@ std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader)
     Huffman_Tree dist_tree(dist_codes_keys_paths);
     delete dist_codes;
 
-    return read_dynamic_huffman_data(reader, lit_len_tree, dist_tree);
+    return read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
 }
 
 void Deflate::build_static_huffman_tree()
@@ -218,9 +222,10 @@ std::pair<char*, int> Deflate::inflate(const unsigned char* data, const int offs
         std::vector<std::vector<char>> inflated_blocks;
         Stream_Reader reader(data, offset);
         std::pair<bool, std::vector<char>> inflation;
+        Window window{};
         do
         {
-            inflation = decompress_block(reader);
+            inflation = decompress_block(reader, window);
             inflated_blocks.push_back(inflation.second);
             off += static_cast<int>(inflation.second.size());
         }
@@ -284,14 +289,16 @@ int* Deflate::codes_from_code_lengths(const int code_lengths[], const int num_co
 }
 
 std::vector<char> Deflate::read_dynamic_huffman_data(Deflate::Stream_Reader &reader, Huffman_Tree &lit_len_tree,
-                                                     Huffman_Tree &dist_tree) {
+                                                     Huffman_Tree &dist_tree, Window& window) {
     std::vector<char> data;
     int lit_len = lit_len_tree.read_key(reader);
     while (lit_len != 256)
     {
         // Literal
-        if (lit_len <= 255)
+        if (lit_len <= 255) {
             data.push_back(static_cast<char>(lit_len));
+            window.add(static_cast<char>(lit_len));
+        }
         else if (lit_len <= 287) // Length
         {
             int len = lengths_base_values_[lit_len];
@@ -304,9 +311,12 @@ std::vector<char> Deflate::read_dynamic_huffman_data(Deflate::Stream_Reader &rea
             int dist = distances_base_values[dist_value];
             if (const int extra_bits = distances_extra_bits[dist_value])
                 dist += reader.read_number(extra_bits);
-            const int start_index = static_cast<int>(data.size()) - dist;
-            for (int i = 0; i < len; i++)
-                data.push_back(data[start_index + (i % dist)]);
+
+            for (int i = 0; i < len; ++i) {
+                char c = window.get(dist);
+                data.push_back(c);
+                window.add(c);
+            }
         }
         else
             throw std::runtime_error("Invalid dynamic huffman code!");

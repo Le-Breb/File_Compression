@@ -115,15 +115,38 @@ public:
             return bytes;
         }
     };
+    class Window {
+        char data_[0x8000]{};
+        int offset_ = 0;
+        int size_ = 0;
+
+    public:
+        Window() = default;
+        ~Window() = default;
+        void add(const char& c) {
+            data_[offset_++] = c;
+            if (offset_ == 0x8000)
+                offset_ = 0;
+            if (size_ < 0x8000)
+                size_++;
+
+        }
+
+        char get(const int offset) const {
+            return data_[(offset_ - offset) % 0x8000];
+        }
+
+        int size() const { return size_; }
+    };
     static std::pair<char*, int> deflate(const unsigned char* data, int size);
     static std::pair<char*, int> inflate(const unsigned char* data, int offset);
 
 private:
-    static std::pair<bool, std::vector<char>> decompress_block(Stream_Reader& reader);
+    static std::pair<bool, std::vector<char>> decompress_block(Stream_Reader& reader, Window& window);
     static std::vector<char> get_stored_data(Stream_Reader& reader);
-    static std::vector<char> get_fixed_huffman_data(Stream_Reader& reader);
-    static std::vector<char> get_dynamic_huffman_data(Stream_Reader& reader);
-    static std::vector<char> read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree& lit_len_tree, Huffman_Tree& dist_tree);
+    static std::vector<char> get_fixed_huffman_data(Stream_Reader& reader, Window& window);
+    static std::vector<char> get_dynamic_huffman_data(Stream_Reader& reader, Window& window);
+    static std::vector<char> read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree& lit_len_tree, Huffman_Tree& dist_tree, Window& window);
     inline static Huffman_Tree* static_huffman_tree_ = nullptr;
     static void build_static_huffman_tree();
     static int*
