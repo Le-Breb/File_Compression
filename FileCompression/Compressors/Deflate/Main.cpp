@@ -1,10 +1,11 @@
-﻿#include "Deflate.h"
-#include "Huffman_Tree/Huffman_Tree.h"
+﻿#include "Main.h"
+#include "Huffman_Tree.h"
+#include "Window.h"
 #include <exception>
 #include <iostream>
 #include <vector>
 
-std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& reader, Window& window)
+std::pair<bool, std::vector<char>> Deflate::Main::decompress_block(Stream_Reader& reader, Window& window)
 {
     const bool is_final_block = reader.read_bits(1)[0];
     
@@ -23,7 +24,7 @@ std::pair<bool, std::vector<char>> Deflate::decompress_block(Stream_Reader& read
     }
 }
 
-std::vector<char> Deflate::get_stored_data(Stream_Reader& reader)
+std::vector<char> Deflate::Main::get_stored_data(Stream_Reader& reader)
 {
     reader.skip_end_of_byte();
     const auto len = static_cast<short>(reader.read_number(16));
@@ -36,7 +37,7 @@ std::vector<char> Deflate::get_stored_data(Stream_Reader& reader)
 }
 
 
-std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
+std::vector<char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
 {
     std::vector<char> data;
     int lit_len = static_huffman_tree_->read_key(reader);
@@ -74,7 +75,7 @@ std::vector<char> Deflate::get_fixed_huffman_data(Stream_Reader& reader, Window&
     return data;
 }
 
-std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
+std::vector<char> Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
 {
     std::vector<char> data;
     const int num_lit_len = reader.read_number(5) + 257;
@@ -184,7 +185,7 @@ std::vector<char> Deflate::get_dynamic_huffman_data(Stream_Reader& reader, Windo
     return read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
 }
 
-void Deflate::build_static_huffman_tree()
+void Deflate::Main::build_static_huffman_tree()
 {
     std::map<int, std::pair<int, int>> keys_paths;
     int c = 0;
@@ -200,7 +201,7 @@ void Deflate::build_static_huffman_tree()
     static_huffman_tree_ = new Huffman_Tree(keys_paths);
 }
 
-std::pair<char*, int> Deflate::deflate(const unsigned char* data, const int size)
+std::pair<char*, int> Deflate::Main::deflate(const unsigned char* data, const int size)
 {
     throw std::runtime_error("Not implemented!");
     char* res = new char[size + 1];
@@ -211,7 +212,7 @@ std::pair<char*, int> Deflate::deflate(const unsigned char* data, const int size
     return {res, size + 1};
 }
 
-std::pair<char*, int> Deflate::inflate(const unsigned char* data, const int offset)
+std::pair<char*, int> Deflate::Main::inflate(const unsigned char* data, const int offset)
 {
     // Build static huffman tree if not already built
     if (static_huffman_tree_ == nullptr)
@@ -254,7 +255,7 @@ std::pair<char*, int> Deflate::inflate(const unsigned char* data, const int offs
 }
 
 /// \brief Computes codes from code lengths using the <b>algorithm described in RFC 1951 section 3.2.2</b>
-int* Deflate::codes_from_code_lengths(const int code_lengths[], const int num_codes,
+int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int num_codes,
                                        const int max_code_length) {
     // Compute number of codes for each code length
     /// \brief bl_count[i] contains the number of codes of length i
@@ -288,7 +289,7 @@ int* Deflate::codes_from_code_lengths(const int code_lengths[], const int num_co
     return code_length_codes;
 }
 
-std::vector<char> Deflate::read_dynamic_huffman_data(Deflate::Stream_Reader &reader, Huffman_Tree &lit_len_tree,
+std::vector<char> Deflate::Main::read_dynamic_huffman_data(Stream_Reader &reader, Huffman_Tree &lit_len_tree,
                                                      Huffman_Tree &dist_tree, Window& window) {
     std::vector<char> data;
     int lit_len = lit_len_tree.read_key(reader);

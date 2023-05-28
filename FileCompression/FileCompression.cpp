@@ -4,10 +4,8 @@
 #include <iostream>
 #include <ostream>
 
-#include "CRC32.h"
 #include "ZipFile.h"
-#include "Compressors/Deflate.h"
-#include "Compressors/Huffman_Tree/Huffman_Tree.h"
+#include "Compressors/Deflate/Main.h"
 void show_file_content(const char* path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -33,12 +31,6 @@ std::bitset<N> reverse(const std::bitset<N> &bit_set) {
 
 int main(int argc, char* argv[])
 {
-    const unsigned char data[] = {0x1d, 0xc6, 0x49, 0x01, 0x00, 0x00, 0x10, 0x40, 0xc0, 0xac, 0xa3, 0x7f, 0x88, 0x3d, 0x3c, 0x20, 0x2a, 0x97, 0x9d, 0x37, 0x5e, 0x1d, 0x0c};
-    auto a = Deflate::inflate(data, 0);
-    for (int i = 0; i < a.second; ++i) {
-        std::cout<<a.first[i];
-    }
-    std::cout << std::endl;
     ZipFile zip_file;
     zip_file.add_file("../Data/someData.txt", "someData.txt");
     zip_file.write("../Data/someData_.zip");

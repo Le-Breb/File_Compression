@@ -159,7 +159,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CDFH.cpp" />
-    <ClCompile Include="Compressors\Deflate.cpp" />
+    <ClCompile Include="Compressors\Main.cpp" />
     <ClCompile Include="Compressors\Huffman_Tree\Huffman_Tree.cpp" />
     <ClCompile Include="CRC32.cpp" />
     <ClCompile Include="EOCD.cpp" />
@@ -173,7 +173,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CDFH.h" />
-    <ClInclude Include="Compressors\Deflate.h" />
+    <ClInclude Include="Compressors\Main.h" />
     <ClInclude Include="Compressors\Huffman_Tree\Huffman_Tree.h" />
     <ClInclude Include="CRC32.h" />
     <ClInclude Include="EOCD.h" />

@@ -1,9 +1,8 @@
 ﻿#include "Huffman_Tree.h"
-
 #include <iostream>
 
 
-void Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_length)
+void Deflate::Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_length)
 {
     if (node.key == -1)
     {
@@ -21,7 +20,7 @@ void Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_
     }
 }
 
-Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
+Deflate::Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
 {   
     std::map<int, Node*> l;
     for(const auto& el : frequency_table)
@@ -42,7 +41,7 @@ Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
     generate_chars_of_bit_length(*root_, 0);
 }
 
-void Huffman_Tree::add(Node* node, const int key, const int path, const int path_length)
+void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, const int path_length)
 {
     if(!path_length)
     {
@@ -63,7 +62,7 @@ void Huffman_Tree::add(Node* node, const int key, const int path, const int path
     }
 }
 
-Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
+Deflate::Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
 {
     root_ = new Node(-1, nullptr, nullptr);
 
@@ -73,7 +72,7 @@ Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
     generate_chars_of_bit_length(*root_, 0);
 }
 
-int Huffman_Tree::read_key(Deflate::Stream_Reader& reader) const
+int Deflate::Huffman_Tree::read_key(Stream_Reader& reader) const
 {
     const Node* current = root_;
     while(current->key == -1)
@@ -87,9 +86,9 @@ int Huffman_Tree::read_key(Deflate::Stream_Reader& reader) const
     return current->key;
 }
 
-std::ostream& operator<<(std::ostream& os, const Huffman_Tree& huffman_tree)
-{
+std::ostream &Deflate::operator<<(std::ostream &os, const Deflate::Huffman_Tree &huffman_tree) {
     os << huffman_tree.root_;
-    
+
     return os;
 }
+
