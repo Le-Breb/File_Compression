@@ -1,5 +1,6 @@
 ﻿#include "Huffman_Tree.h"
 #include <iostream>
+#include <queue>
 
 
 void Deflate::Huffman_Tree::generate_chars_of_bit_length(const Node& node, const int bit_length)
@@ -90,5 +91,29 @@ std::ostream &Deflate::operator<<(std::ostream &os, const Deflate::Huffman_Tree 
     os << huffman_tree.root_;
 
     return os;
+}
+
+std::map<int, int> Deflate::Huffman_Tree::code_lengths() const {
+    std::map<int, int> dict;
+
+    Node* n = root_;
+    std::queue<std::pair<Node*, int>> q;
+    q.emplace(n, 0);
+    while(!q.empty())
+    {
+        auto p = q.front();
+        q.pop();
+        if(p.first->key != -1)
+            dict[p.first->key] = p.second;
+        else
+        {
+            if (p.first->left != nullptr)
+                q.emplace(p.first->left, p.second + 1);
+            if (p.first->right != nullptr)
+                q.emplace(p.first->right, p.second + 1);
+        }
+    }
+
+    return dict;
 }
 

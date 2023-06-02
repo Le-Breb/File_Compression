@@ -292,6 +292,40 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
      * Build a huffman tree out of those 19 values (0-15 => raw length, 16 => 3-6 repeat, 17 => 3-10 0, 18 => 11-138 0)
      * Write the 19 code lengths int the order 16 17 18 0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15
      * */
+    int lit_len_code_lengths[286];
+    int dist_code_lengths[30];
+    for (int & lit_len_code_length : lit_len_code_lengths)
+        lit_len_code_length = 0;
+    for (int & dist_code_length : dist_code_lengths)
+        dist_code_length = 0;
+    for (const auto& [c, len] : lit_len_tree.code_lengths())
+        lit_len_code_lengths[c] = len;
+    for (const auto& [c, len] : dist_tree.code_lengths())
+        dist_code_lengths[c] = len;
+    std::unordered_map<int, int> code_lengths_frequency_table;
+    int j = 0;
+    while (j < 286){
+        int k = 1;
+        while (j + k < 286 && lit_len_code_lengths[j + k] == lit_len_code_lengths[j] && k < 138)
+            ++k;
+        if (k > 2) {
+            if (lit_len_code_lengths[j] == 0)
+                code_lengths_frequency_table[k < 11 ? 17 : 18]++;
+            else
+            {
+                code_lengths_frequency_table[16] += k / 6;
+                int l = k % 6;
+                if (l > 2)
+                    code_lengths_frequency_table[16]++;
+                else
+                    code_lengths_frequency_table[lit_len_code_lengths[j]] += l;
+            }
+        }
+        else
+            code_lengths_frequency_table[lit_len_code_lengths[j]] += k;
+        j += k;
+    }
+    Huffman_Tree code_lengths_tree(code_lengths_frequency_table);
 
     std::cout<<std::endl;
     throw std::runtime_error("Not implemented!");

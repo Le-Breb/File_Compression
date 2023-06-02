@@ -33,6 +33,7 @@ namespace Deflate {
         Node* root_;
     public:
         std::map<int, int> chars_of_bit_length_;
+        std::map<int, int> code_lengths() const;
         explicit Huffman_Tree(const std::unordered_map<int, int> &frequency_table);
         explicit Huffman_Tree(const std::map<int, std::pair<int, int>>& tree);
         ~Huffman_Tree(){delete root_;}
