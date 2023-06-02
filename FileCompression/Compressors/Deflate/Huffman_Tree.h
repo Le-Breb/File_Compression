@@ -2,6 +2,7 @@
 #include <map>
 #include <ostream>
 #include <vector>
+#include <unordered_map>
 #include "Main.h"
 
 namespace Deflate {
@@ -26,13 +27,13 @@ namespace Deflate {
             }
         };
 
-        std::map<int, int> chars_of_bit_length_;
         void generate_chars_of_bit_length(const Node& node, int bit_length);
         static void add(Node* node, int key, int path, int path_length);
 
         Node* root_;
     public:
-        explicit Huffman_Tree(const std::map<char, int>& frequency_table);
+        std::map<int, int> chars_of_bit_length_;
+        explicit Huffman_Tree(const std::unordered_map<int, int> &frequency_table);
         explicit Huffman_Tree(const std::map<int, std::pair<int, int>>& tree);
         ~Huffman_Tree(){delete root_;}
         int read_key(Stream_Reader& reader) const;

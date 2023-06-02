@@ -1,9 +1,11 @@
 ﻿#include "Main.h"
 #include "Huffman_Tree.h"
 #include "Window.h"
+#include "Match.h"
 #include <exception>
 #include <iostream>
 #include <vector>
+#include <list>
 
 std::pair<bool, std::vector<char>> Deflate::Main::decompress_block(Stream_Reader& reader, Window& window)
 {
@@ -35,7 +37,6 @@ std::vector<char> Deflate::Main::get_stored_data(Stream_Reader& reader)
 
     return bytes;
 }
-
 
 std::vector<char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
 {
@@ -201,8 +202,98 @@ void Deflate::Main::build_static_huffman_tree()
     static_huffman_tree_ = new Huffman_Tree(keys_paths);
 }
 
-std::pair<char*, int> Deflate::Main::deflate(const unsigned char* data, const int size)
+std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
 {
+    // Spot matches
+    std::list<Match*> matches;
+    std::map<int, std::list<int>> q;
+    bool matchOnPreviousByte = false;
+    int i = 0;
+    while (i < size - 2) {
+        const int h = data[i] << 16 | data[i + 1] << 8 | data[i + 2];
+        bool match = q.find(h) != q.end();
+        if (!match)
+            q[h] = {i++};
+        else {
+            auto* bestMatch = new Match(i, 3, 3);
+            for (auto j : q[h]) {
+                if (i - j > 32768) continue;
+                int len = 3;
+                while (i + len < size && data[j + len] == data[i + len] && len < 258)
+                    ++len;
+                if (len > bestMatch->length())
+                    bestMatch = new Match(i, len, i - j);
+            }
+            // Lazy matching
+            if (matchOnPreviousByte && bestMatch > matches.back()) {
+                delete matches.back();
+                matches.pop_back();
+                i++;
+            }
+            matches.push_back(bestMatch);
+            q[h].push_back(i);
+            i += bestMatch->length();
+        }
+        matchOnPreviousByte = match;
+    }
+
+    // Build dynamic huffman trees
+    std::unordered_map<int, int> lit_len_frequency_table;
+    std::unordered_map<int, int> dist_frequency_table;
+    int index = 0;
+    int nextMatchPos = !matches.empty() ? matches.front()->position() : size;
+    auto nextMatchIter = matches.begin();
+    while (index < size){
+        // ??
+        /*if (data[index] == 0) {
+            int j = index + 1;
+            while (j < size && data[j] == 0 && j - index < 138)
+                ++j;
+            if (j - index >= 3) {
+                matches.push_back(new Match(index, 0, j - index));
+                index = j;
+            }
+        }
+        else
+            ++index;*/
+        if (index == nextMatchPos){
+            int length_code = length_codes[(*nextMatchIter)->length()];
+            int dist_code = dist_codes[(*nextMatchIter)->distance()];
+
+            if (lit_len_frequency_table.find(length_code) == lit_len_frequency_table.end())
+                lit_len_frequency_table[length_code] = 1;
+            else
+                lit_len_frequency_table[length_code]++;
+
+            if (lit_len_frequency_table.find(dist_code) == lit_len_frequency_table.end())
+                dist_frequency_table[dist_code] = 1;
+            else
+                dist_frequency_table[dist_code]++;
+
+            index += (*nextMatchIter)->length();
+            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
+        }
+        else {
+            if (lit_len_frequency_table.find(data[index]) == lit_len_frequency_table.end())
+                lit_len_frequency_table[data[index]] = 1;
+            else
+                lit_len_frequency_table[data[index]]++;
+            index++;
+        }
+    }
+    Huffman_Tree lit_len_tree(lit_len_frequency_table);
+    Huffman_Tree dist_tree(dist_frequency_table);
+
+    /* Steps :
+     * Build a list of code length for each lit/len and dist
+     * Enumerate them and store how many times we need to say the raw length, how many
+     * times we can duplicate the last one 3-6 times, how many times in a row the code 0 appears
+     * (for both ranges 3-10 and 11-138).
+     * Build a huffman tree out of those 19 values (0-15 => raw length, 16 => 3-6 repeat, 17 => 3-10 0, 18 => 11-138 0)
+     * Write the 19 code lengths int the order 16 17 18 0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15
+     * */
+
+    std::cout<<std::endl;
     throw std::runtime_error("Not implemented!");
     char* res = new char[size + 1];
     res[0] = 1; // Last block, no compression

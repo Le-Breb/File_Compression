@@ -20,8 +20,8 @@ void Deflate::Huffman_Tree::generate_chars_of_bit_length(const Node& node, const
     }
 }
 
-Deflate::Huffman_Tree::Huffman_Tree(const std::map<char, int>& frequency_table)
-{   
+Deflate::Huffman_Tree::Huffman_Tree(const std::unordered_map<int, int> &frequency_table)
+{
     std::map<int, Node*> l;
     for(const auto& el : frequency_table)
         l[el.second] = new Node(el.first, nullptr, nullptr);
