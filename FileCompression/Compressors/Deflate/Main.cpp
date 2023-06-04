@@ -2,6 +2,7 @@
 #include "Huffman_Tree.h"
 #include "Window.h"
 #include "Match.h"
+#include "Writer.h"
 #include <exception>
 #include <iostream>
 #include <vector>
@@ -9,7 +10,7 @@
 
 std::pair<bool, std::vector<char>> Deflate::Main::decompress_block(Stream_Reader& reader, Window& window)
 {
-    const bool is_final_block = reader.read_bits(1)[0];
+    const bool is_final_block = reader.read_bit();
     
     switch (reader.read_number(2))
     {
@@ -62,7 +63,7 @@ std::vector<char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, W
             if (const int extra_bits = distances_extra_bits[dist_value])
                 dist += reader.read_number(extra_bits);
             for (int i = 0; i < len; ++i) {
-                char c = window.get(dist); // Current pos increases when we add to window the offset is always dist
+                char c = window.get(dist); // Current pos increases when we add to window so the offset is always dist
                 data.push_back(c);
                 window.add(c);
             }
@@ -208,31 +209,31 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
     std::list<Match*> matches;
     std::map<int, std::list<int>> q;
     bool matchOnPreviousByte = false;
-    int i = 0;
-    while (i < size - 2) {
-        const int h = data[i] << 16 | data[i + 1] << 8 | data[i + 2];
+    int ind = 0;
+    while (ind < size - 2) {
+        const int h = data[ind] << 16 | data[ind + 1] << 8 | data[ind + 2];
         bool match = q.find(h) != q.end();
         if (!match)
-            q[h] = {i++};
+            q[h] = {ind++};
         else {
-            auto* bestMatch = new Match(i, 3, 3);
+            auto* bestMatch = new Match(ind, 3, 3);
             for (auto j : q[h]) {
-                if (i - j > 32768) continue;
+                if (ind - j > 32768) continue;
                 int len = 3;
-                while (i + len < size && data[j + len] == data[i + len] && len < 258)
+                while (ind + len < size && data[j + len] == data[ind + len] && len < 258)
                     ++len;
                 if (len > bestMatch->length())
-                    bestMatch = new Match(i, len, i - j);
+                    bestMatch = new Match(ind, len, ind - j);
             }
             // Lazy matching
             if (matchOnPreviousByte && bestMatch > matches.back()) {
                 delete matches.back();
                 matches.pop_back();
-                i++;
+                ind++;
             }
             matches.push_back(bestMatch);
-            q[h].push_back(i);
-            i += bestMatch->length();
+            q[h].push_back(ind);
+            ind += bestMatch->length();
         }
         matchOnPreviousByte = match;
     }
@@ -244,18 +245,6 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
     int nextMatchPos = !matches.empty() ? matches.front()->position() : size;
     auto nextMatchIter = matches.begin();
     while (index < size){
-        // ??
-        /*if (data[index] == 0) {
-            int j = index + 1;
-            while (j < size && data[j] == 0 && j - index < 138)
-                ++j;
-            if (j - index >= 3) {
-                matches.push_back(new Match(index, 0, j - index));
-                index = j;
-            }
-        }
-        else
-            ++index;*/
         if (index == nextMatchPos){
             int length_code = length_codes[(*nextMatchIter)->length()];
             int dist_code = dist_codes[(*nextMatchIter)->distance()];
@@ -281,6 +270,7 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
             index++;
         }
     }
+    lit_len_frequency_table[256] = 1; // End of block
     Huffman_Tree lit_len_tree(lit_len_frequency_table);
     Huffman_Tree dist_tree(dist_frequency_table);
 
@@ -294,14 +284,16 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
      * */
     int lit_len_code_lengths[286];
     int dist_code_lengths[30];
+    std::map<int, std::pair<int, int>> lit_len_codes = lit_len_tree.canonical_codes();
+    std::map<int, std::pair<int, int>> distance_codes = dist_tree.canonical_codes();
     for (int & lit_len_code_length : lit_len_code_lengths)
         lit_len_code_length = 0;
     for (int & dist_code_length : dist_code_lengths)
         dist_code_length = 0;
-    for (const auto& [c, len] : lit_len_tree.code_lengths())
-        lit_len_code_lengths[c] = len;
-    for (const auto& [c, len] : dist_tree.code_lengths())
-        dist_code_lengths[c] = len;
+    for (const auto& [c, code_len] : lit_len_codes)
+        lit_len_code_lengths[c] = code_len.second;
+    for (const auto& [c, code_len] : distance_codes)
+        dist_code_lengths[c] = code_len.second;
     std::unordered_map<int, int> code_lengths_frequency_table;
     int j = 0;
     while (j < 286){
@@ -326,15 +318,65 @@ std::pair<char*, int> Deflate::Main::deflate(const char *data, int size)
         j += k;
     }
     Huffman_Tree code_lengths_tree(code_lengths_frequency_table);
+    std::map<int, int> code_length_code_lengths;
+    for (const auto& [c, code_len] : code_lengths_tree.canonical_codes())
+        code_length_code_lengths[c] = code_len.second;
 
-    std::cout<<std::endl;
-    throw std::runtime_error("Not implemented!");
-    char* res = new char[size + 1];
-    res[0] = 1; // Last block, no compression
-    for (int i = 0; i < size; i++)
-        res[i + 1] = static_cast<char>(data[i]);
+    int num_code_length_code_length = 19;
+    while (num_code_length_code_length >= 0 &&
+    code_length_code_lengths.find(code_length_codes_order[num_code_length_code_length - 1]) == code_length_code_lengths.end())
+        --num_code_length_code_length;
 
-    return {res, size + 1};
+    int num_lengths = 0;
+    for (const auto& [symbol, code_len] : lit_len_frequency_table)
+        if (symbol > 255)
+            num_lengths++;
+
+    //Writing to file
+    Writer writer{};
+    writer.write_number(num_lengths, 5);
+    writer.write_number(static_cast<int>(dist_frequency_table.size()) - 1, 5);
+    writer.write_number(num_code_length_code_length - 4, 4);
+    for (int k = 0; k < num_code_length_code_length; ++k)
+        writer.write_number(code_length_code_lengths[code_length_codes_order[k]], 3);
+    int k = 285;
+    while (lit_len_code_lengths[k] == 0)
+        --k;
+    for (int l = 0; l <= k; ++l)
+        writer.write_code(lit_len_code_lengths[l], code_length_code_lengths[lit_len_code_lengths[l]]);
+    k = 29;
+    while (dist_code_lengths[k] == 0)
+        --k;
+    for (int l = 0; l <= k; ++l)
+        writer.write_code(dist_code_lengths[l], code_length_code_lengths[dist_code_lengths[l]]);
+
+    // Write the encoded data
+    index = 0;
+    nextMatchPos = matches.empty() ? size : matches.front()->position();
+    nextMatchIter = matches.begin();
+    while (index < size){
+        if (index == nextMatchPos){
+            writer.write_code(lit_len_codes[(*nextMatchIter)->length()].first, lit_len_codes[(*nextMatchIter)->length()].second);
+            writer.write_code((*nextMatchIter)->distance(), distance_codes[(*nextMatchIter)->distance()].second);
+
+            index += (*nextMatchIter)->length();
+            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
+        }
+        else {
+            writer.write_code(lit_len_codes[data[index]].first, lit_len_codes[data[index]].second);
+            index++;
+        }
+    }
+
+    writer.write_code(lit_len_codes[256].first, lit_len_codes[256].second); // End of block
+    writer.close();
+
+    // Copy the data to a new array
+    char* compressed_data = new char[writer.data.size()];
+    for (int i = 0; i < writer.data.size(); ++i)
+        compressed_data[i] = writer.data[i];
+
+    return { compressed_data, writer.data.size() };
 }
 
 std::pair<char*, int> Deflate::Main::inflate(const unsigned char* data, const int offset)

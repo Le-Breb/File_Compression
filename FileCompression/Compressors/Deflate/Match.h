@@ -17,9 +17,9 @@ namespace Deflate {
     public:
         Match(int position, int length, int distance) : position_(position), length_(length), distance_(distance) {}
 
-        int length() const { return length_; }
-        int distance() const { return distance_; }
-        int position() const { return position_; }
+        [[nodiscard]] int length() const { return length_; }
+        [[nodiscard]] int distance() const { return distance_; }
+        [[nodiscard]] int position() const { return position_; }
 
         friend bool operator<(const Match& lhs, const Match& rhs) {
             return lhs.length_ < rhs.length_;

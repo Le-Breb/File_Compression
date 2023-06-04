@@ -79,12 +79,12 @@ namespace Deflate{
 
         /**
          * \brief Reads a number from the data
-         * \param bits Number of bits to read
+         * \param bit_length Number of bit_length to read
          */
-        int read_number(const int bits)
+        int read_number(const int bit_length)
         {
             int n = 0;
-            for (int i = 0; i < bits; i++)
+            for (int i = 0; i < bit_length; i++)
             {
                 n += ((data_[byte_offset_] & (1 << bit_index_)) >> bit_index_++) << i;
                 if (bit_index_ == 8)

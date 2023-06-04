@@ -13,7 +13,7 @@ namespace Deflate {
     public:
 
         static std::pair<char*, int> deflate(const char *data, int size);
-        static std::pair<char*, int> inflate(const unsigned char* data, int offset);
+        static std::pair<char*, int> inflate(const unsigned char* data, int offset = 0);
 
     private:
         static std::pair<bool, std::vector<char>> decompress_block(Stream_Reader& reader, Window& window);

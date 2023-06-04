@@ -5,7 +5,10 @@
 #include <ostream>
 
 #include "ZipFile.h"
+#include "Base64.h"
 #include "Compressors/Deflate/Main.h"
+#include "Compressors/Deflate/Huffman_Tree.h"
+
 void show_file_content(const char* path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -31,6 +34,23 @@ std::bitset<N> reverse(const std::bitset<N> &bit_set) {
 
 int main(int argc, char* argv[])
 {
+    /*auto a = "Fci7DYAwDAXAVV5HxxD0DGGJh3CU2PnY+wPl3eFWPCcK0TbpnbUSp8SjTDD+X6kLaZ/yUrEADWq3zyahI7m/";
+    auto b = Base64::decode(a);
+    auto c = new unsigned char[b.size()];
+    for (int i = 0; i < b.size(); ++i)
+        c[i] = b[i];
+    auto d = Deflate::Main::inflate(c);
+    for (int i = 0; i < d.second; ++i)
+        std::cout << d.first[i];*/
+    const char* test = "Bonjour je m\'appelle Mathieu et je suis un etudiant en informatique.";
+    auto res = Deflate::Main::deflate(test, static_cast<int>(strlen(test)));
+    auto c = new unsigned char[res.second];
+    for (int i = 0; i < res.second; ++i)
+        c[i] = res.first[i];
+    auto d = Deflate::Main::inflate(c);
+    for (int i = 0; i < d.second; ++i)
+        std::cout << d.first[i];
+    std::cout<<std::endl;
     ZipFile zip_file;
     zip_file.add_file("../Data/someData.txt", "someData.txt");
     zip_file.write("../Data/someData_.zip");
