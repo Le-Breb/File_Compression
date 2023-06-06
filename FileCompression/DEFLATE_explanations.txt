@@ -35,4 +35,4 @@ We now need to read the literal/length codes. We decode them with the results of
 This step gives us the code length for the literal/length codes. We now assign them their actual code using
 the properties of canonical Huffman trees (the algorithm is detailed in the RFC).
 Repeat the exact same process for processing the distance codewords.
-Finally decode the rest of the data thanks to the processed information.
+Eventually decode the rest of the data thanks to the processed information.

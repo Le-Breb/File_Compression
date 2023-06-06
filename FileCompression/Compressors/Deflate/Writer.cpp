@@ -8,7 +8,7 @@
 Deflate::Writer::Writer() = default;
 
 void Deflate::Writer::write_number(int number, int bit_length) {
-    for(int i = bit_length - 1; i >= 0; --i)
+    for (int i = 0; i < bit_length; ++i)
         write_bit(number & (1 << i));
 }
 
@@ -37,6 +37,6 @@ void Deflate::Writer::write_bytes(const std::vector<unsigned char> &bytes) {
 }
 
 void Deflate::Writer::write_code(int code, int bit_length) {
-    for (int i = 0; i < bit_length; ++i)
+    for(int i = bit_length - 1; i >= 0; --i)
         write_bit(code & (1 << i));
 }

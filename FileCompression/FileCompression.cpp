@@ -34,6 +34,29 @@ std::bitset<N> reverse(const std::bitset<N> &bit_set) {
 
 int main(int argc, char* argv[])
 {
+    /*char* path = "dict.txt";
+    std::ofstream out(path, std::ios::out);
+    for (int i = 3; i < 259; ++i) {
+        int closestAbs = 99;
+        int closest = 0;
+        for(const auto& a : Deflate::Main::length_codes2) {
+            if (a.first > i)
+                continue;
+            if (a.first == i) {
+                closest = a.first;
+                break;
+            } else if (abs(a.first - i) < closestAbs) {
+                closestAbs = abs(a.first - i);
+                closest = a.first;
+            }
+        }
+        out.write(", {", 3);
+        out.write(std::to_string(i).c_str(), std::to_string(i).size());
+        out.write(", ", 2);
+        out.write(std::to_string(closest).c_str(), std::to_string(closest).size());
+        out.write("}", 1);
+    }
+    return 0;*/
     /*auto a = "Fci7DYAwDAXAVV5HxxD0DGGJh3CU2PnY+wPl3eFWPCcK0TbpnbUSp8SjTDD+X6kLaZ/yUrEADWq3zyahI7m/";
     auto b = Base64::decode(a);
     auto c = new unsigned char[b.size()];
