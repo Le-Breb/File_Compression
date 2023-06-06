@@ -7,39 +7,30 @@
 
 #include <ostream>
 
-namespace Deflate {
+namespace Deflate
+{
 
-    class Match {
+    class Match
+    {
     private:
         int position_;
         int length_;
         int distance_;
     public:
-        Match(int position, int length, int distance) : position_(position), length_(length), distance_(distance) {}
+        Match(int position, int length, int distance) : position_(position), length_(length), distance_(distance)
+        {}
 
-        [[nodiscard]] int length() const { return length_; }
-        [[nodiscard]] int distance() const { return distance_; }
-        [[nodiscard]] int position() const { return position_; }
+        [[nodiscard]] int length() const
+        { return length_; }
 
-        friend bool operator<(const Match& lhs, const Match& rhs) {
-            return lhs.length_ < rhs.length_;
-        }
-        friend bool operator>(const Match& lhs, const Match& rhs) {
-            return lhs.length_ > rhs.length_;
-        }
-        friend bool operator<=(const Match& lhs, const Match& rhs) {
-            return lhs.length_ <= rhs.length_;
-        }
-        friend bool operator>=(const Match& lhs, const Match& rhs) {
-            return lhs.length_ >= rhs.length_;
-        }
-        friend bool operator==(const Match& lhs, const Match& rhs) {
-            return lhs.length_ == rhs.length_;
-        }
-        friend bool operator!=(const Match& lhs, const Match& rhs) {
-            return lhs.length_ != rhs.length_;
-        }
-        friend std::ostream& operator<<(std::ostream& os, const Match& match) {
+        [[nodiscard]] int distance() const
+        { return distance_; }
+
+        [[nodiscard]] int position() const
+        { return position_; }
+
+        friend std::ostream& operator<<(std::ostream& os, const Match& match)
+        {
             os << "(length: " << match.length_ << ", distance: " << match.distance_ << ")";
             return os;
         }

@@ -5,17 +5,22 @@
 #ifndef FILECOMPRESSION_WINDOW_H
 #define FILECOMPRESSION_WINDOW_H
 
-namespace Deflate {
+namespace Deflate
+{
 
-    class Window {
+    class Window
+    {
         char data_[0x8000]{};
         int offset_ = 0;
         int size_ = 0;
 
     public:
         Window() = default;
+
         ~Window() = default;
-        void add(const char& c) {
+
+        void add(const char& c)
+        {
             data_[offset_++] = c;
             if (offset_ == 0x8000)
                 offset_ = 0;
@@ -24,11 +29,14 @@ namespace Deflate {
 
         }
 
-        char get(const int offset) const {
-            return data_[(offset_ - offset) % 0x8000];
+        [[nodiscard]] char get(const int offset) const
+        {
+            const int m = offset_ - offset;
+            return m < 0 ? data_[0x8000 + m] : data_[m % 0x8000];
         }
 
-        int size() const { return size_; }
+        [[nodiscard]] int size() const
+        { return size_; }
     };
 
 } // Deflate
