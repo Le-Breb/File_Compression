@@ -53,12 +53,12 @@ void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, // NO
     }
 }
 
-Deflate::Huffman_Tree::Huffman_Tree(const std::map<int, std::pair<int, int>>& tree)
+Deflate::Huffman_Tree::Huffman_Tree(const std::map<int, Code>& tree)
 {
     root_ = new Node(-1, nullptr, nullptr);
 
-    for (const auto p : tree)
-        add(root_, p.first, p.second.first, p.second.second);
+    for (const auto& [symbol, code] : tree)
+        add(root_, symbol, code.code, code.length);
 }
 
 int Deflate::Huffman_Tree::read_key(Stream_Reader& reader) const
@@ -106,7 +106,7 @@ std::map<int, std::vector<int>> Deflate::Huffman_Tree::symbols_per_code_length()
     return res;
 }
 
-std::map<int, std::pair<int, int>> Deflate::Huffman_Tree::canonical_codes(const int max_bit_length) const
+std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_codes(const int max_bit_length) const
 {
     std::map<int, std::vector<int>> symbols_per_bit_len = symbols_per_code_length();
     int overflow;
@@ -135,7 +135,7 @@ std::map<int, std::pair<int, int>> Deflate::Huffman_Tree::canonical_codes(const 
         }
     } while (overflow);
 
-    std::map<int, std::pair<int, int>> res;
+    std::map<int, Code> res;
 
     // Computing canonical codes and code lengths
     int code = -1;
@@ -150,50 +150,6 @@ std::map<int, std::pair<int, int>> Deflate::Huffman_Tree::canonical_codes(const 
             prev_bit_len = bit_length;
         }
     }
-
-    /*std::map<int, std::pair<int, int>> original(res);
-    // Fixing codes with bit length > max_bit_length
-    for (auto& [bl, symbols] : symbols_per_bit_len)
-    {
-        if (bl > max_bit_length)
-        {
-            int q = max_bit_length - 1;
-            while (symbols_per_bit_len[q].empty())
-                --q;
-
-            // Move one leaf down the tree
-            res[symbols_per_bit_len[q].back()].first <<= 1;
-            res[symbols_per_bit_len[q].back()].second += 1;
-            // Move one overflow item as its brother
-            res[symbols.back()].first = res[symbols_per_bit_len[q].back()].first + 1;
-            res[symbols.back()].second = res[symbols_per_bit_len[q].back()].second;
-            // Move the brother of the overflow item one step up the tree
-            res[symbols.rbegin()[1]].first >>= 1;
-            res[symbols.rbegin()[1]].second -= 1;
-
-            // Update symbols_per_bit_len
-            symbols_per_bit_len[q + 1].emplace_back(symbols_per_bit_len[q].back());
-            symbols_per_bit_len[q].pop_back();
-            symbols_per_bit_len[q + 1].emplace_back(symbols.back());
-            symbols.pop_back();
-            symbols_per_bit_len[bl - 1].emplace_back(symbols.back());
-            symbols.pop_back();
-            std::sort(symbols_per_bit_len[q + 1].begin(), symbols_per_bit_len[q + 1].end());
-            std::sort(symbols_per_bit_len[q].begin(), symbols_per_bit_len[q].end());
-            std::sort(symbols_per_bit_len[bl - 1].begin(), symbols_per_bit_len[bl - 1].end());
-        }
-    }
-
-    if (original != res)
-    {
-        std::cout << std::endl;
-        for (const auto& [symbol, p] : original)
-            std::cout << symbol << " " << std::bitset<8>(p.first) << " " << p.second << std::endl;
-        std::cout << std::endl;
-        for (const auto& [symbol, p] : res)
-            std::cout << symbol << " " << std::bitset<8>(p.first) << " " << p.second << std::endl;
-    }*/
-
 
     return res;
 }

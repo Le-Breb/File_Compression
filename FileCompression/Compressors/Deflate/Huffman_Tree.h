@@ -4,7 +4,7 @@
 #include <ostream>
 #include <vector>
 #include <unordered_map>
-#include "Main.h"
+#include "Stream_Reader.h"
 
 namespace Deflate
 {
@@ -51,14 +51,22 @@ namespace Deflate
         };
 
     public:
-        /** \brief Computes canonical codes in a symbol => (code, code_length) dict */
-        [[nodiscard]] std::map<int, std::pair<int, int>> canonical_codes(const int max_bit_length) const;
+        struct Code
+        {
+            int code;
+            int length;
+        };
+
+        /** \brief Computes canonical codes in a symbol => (code, code_length) dict
+         * @param max_bit_length The maximum bit length of the computed codes
+         * */
+        [[nodiscard]] std::map<int, Code> canonical_codes(int max_bit_length) const;
 
         /** \brief Builds a Huffman tree with a symbol => num_occurrences dict */
         explicit Huffman_Tree(const std::unordered_map<int, int>& frequency_table);
 
         /** \brief Builds a Huffman tree with a symbol => (code, code_length) dict */
-        explicit Huffman_Tree(const std::map<int, std::pair<int, int>>& tree);
+        explicit Huffman_Tree(const std::map<int, Code>& tree);
 
         ~Huffman_Tree()
         { delete root_; }

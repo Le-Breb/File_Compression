@@ -7,14 +7,17 @@
 #include "Stream_Reader.h"
 #include "Window.h"
 #include "Match.h"
+#include "Writer.h"
+#include "Huffman_Tree.h"
 
 namespace Deflate
 {
-    class Huffman_Tree;
-
     class Main
     {
     public:
+        static constexpr int MAX_CODE_LENGTH = 15;
+        static constexpr int MAX_CODE_LENGTH_CODE_LENGTH = 7;
+
         static std::pair<unsigned char*, int> deflate(const unsigned char* data, int size);
 
         static std::pair<unsigned char*, int> inflate(const unsigned char* data, int offset = 0);
@@ -22,32 +25,74 @@ namespace Deflate
         static void Test();
 
     private:
+        static void write_compressed_data(Deflate::Writer& writer, const unsigned char* data, int size,
+                                          std::list<Match*>& matches,
+                                          std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
+                                          std::map<int, Deflate::Huffman_Tree::Code>& distance_codes);
+
+        static void
+        write_code_lengths(Deflate::Writer& writer, std::vector<std::pair<int, int>>& code_lengths,
+                           std::map<int, Deflate::Huffman_Tree::Code>& code_length_codes);
+
+        static int enumerate_code_lengths(int count, const int* code_lengths, int max_repetition,
+                                          std::vector<std::pair<int, int>>& code_lengths_to_write,
+                                          std::unordered_map<int, int>& code_lengths_frequency_table);
+
+        static Huffman_Tree* code_lengths_to_tree(int* code_lengths, int num_symbols, int max_length);
+
+        static void compute_dynamic_trees(const unsigned char* data, int size, std::list<Match*>& matches,
+                                          Deflate::Huffman_Tree*& lit_len_tree,
+                                          Deflate::Huffman_Tree*& dist_tree);
+
+        static void
+        read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::Huffman_Tree* tree, int num_symbols,
+                          int& max_length,
+                          int* code_lengths);
+
         static constexpr int BLOCK_SIZE = 16384;
 
+        /** \brief Computes the code of the value range in which the given length is */
         static int length_to_code(int length);
 
+        /** \brief Computes the code of the value range in which the given distance is */
         static int distance_to_code(int distance);
 
         static std::list<Match*> find_matches(const unsigned char* data, int size, int offset = 0);
 
+        /** \brief Decompresses a block of data using the DEFLATE algorithm
+         * @param reader A DEFLATE reader for the compressed data
+         * @param window The window to use for decompression of the whole file
+         * @return A pair containing a boolean indicating whether the block is the last one and the decompressed data
+         */
         static std::pair<bool, std::vector<unsigned char>> decompress_block(Stream_Reader& reader, Window& window);
 
+        /** \brief Reads a DEFLATE stored block */
         static std::vector<unsigned char> get_stored_data(Stream_Reader& reader);
 
+        /** \brief Reads a DEFLATE block compressed with fixed Huffman coding */
         static std::vector<unsigned char> get_fixed_huffman_data(Stream_Reader& reader, Window& window);
 
+        /** \brief Reads a DEFLATE block compressed with dynamic Huffman coding */
         static std::vector<unsigned char> get_dynamic_huffman_data(Stream_Reader& reader, Window& window);
 
+        /** \brief Reads compressed data of DEFLATE block compressed with dynamic Huffman coding
+         * @param reader A DEFLATE reader for the compressed data
+         * @param lit_len_tree The Huffman tree for the literal and length codes
+         * @param dist_tree The Huffman tree for the distance codes
+         * @param window The window to use for decompression of the whole file
+         * */
         static std::vector<unsigned char>
-        read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree& lit_len_tree, Huffman_Tree& dist_tree,
+        read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree* lit_len_tree, Huffman_Tree* dist_tree,
                                   Window& window);
 
+        /** \brief The DEFLATE static Huffman tree */
         inline static Huffman_Tree* static_huffman_tree_ = nullptr;
 
+        /** \brief Computes the DEFLATE static Huffman tree */
         static void build_static_huffman_tree();
 
-        static int*
-        codes_from_code_lengths(const int code_lengths[], int num_codes, int max_code_length);
+        /** \brief Computes canonical Huffman codes given their code lengths */
+        static int* codes_from_code_lengths(const int code_lengths[], int num_symbols, int max_code_length);
 
         static inline std::unordered_map<int, int> closest_length_code = {
                 {0, 0}

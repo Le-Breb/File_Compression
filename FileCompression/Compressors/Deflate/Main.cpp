@@ -52,24 +52,26 @@ std::vector<unsigned char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& 
         // Literal
         if (lit_len <= 255)
         {
-            data.push_back(static_cast<char>(lit_len));
-            window.add(static_cast<char>(lit_len));
+            data.push_back(static_cast<unsigned char>(lit_len));
+            window.add(static_cast<unsigned char>(lit_len));
         }
-        else if (lit_len <= 287) // Length
+        else if (lit_len <= 287) // Repetition
         {
+            // Length
             int len = lit_len_code_to_length[lit_len];
-            if (const int extra_bits = lengths_extra_bits[lit_len])
+            if (const int extra_bits = lengths_extra_bits[lit_len]) // Extra bits
                 len += reader.read_number(extra_bits);
             // Distance
             const int dist_value = reader.read_number(5);
             if (dist_value > 29)
                 throw std::runtime_error("Invalid distance!");
             int dist = distance_code_to_distance[dist_value];
-            if (const int extra_bits = distance_extra_bits[dist_value])
+            if (const int extra_bits = distance_extra_bits[dist_value]) // Extra bits
                 dist += reader.read_number(extra_bits);
             for (int i = 0; i < len; ++i)
             {
-                char c = window.get(dist); // Current pos increases when we add to window so the offset is always dist
+                unsigned char c = window.get(
+                        dist); // Current pos increases when we add to window so the offset is always dist
                 data.push_back(c);
                 window.add(c);
             }
@@ -83,20 +85,18 @@ std::vector<unsigned char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& 
     return data;
 }
 
-std::map<int, std::pair<int, int>> code_length_codes_verif;
-std::map<int, std::pair<int, int>> lit_len_codes_verif;
-std::map<int, std::pair<int, int>> distance_codes_verif;
-
 std::vector<unsigned char> Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
 {
     std::vector<unsigned char> data;
+
+    // Read the number of different codes to read
     const int num_lit_len = reader.read_number(5) + 257;
     const int num_dist = reader.read_number(5) + 1;
     const int num_code_length_code_length = reader.read_number(4) + 4;
-    int code_length_code_lengths[19];
 
     // Read code length code lengths
     int max_code_length_code_length = 0;
+    int code_length_code_lengths[19];
     for (int i = 0; i < num_code_length_code_length; ++i)
     {
         int code_length_code_length = reader.read_number(3);
@@ -107,123 +107,38 @@ std::vector<unsigned char> Deflate::Main::get_dynamic_huffman_data(Stream_Reader
     for (int i = num_code_length_code_length; i < 19; ++i)
         code_length_code_lengths[code_length_codes_order[i]] = 0;
 
-    // Build code length tree from code length code lengths
-    int* code_length_codes = codes_from_code_lengths(code_length_code_lengths, 19, max_code_length_code_length);
-    std::map<int, std::pair<int, int>> code_length_keys_paths;
-    for (int i = 0; i < 19; ++i)
-    {
-        if (code_length_codes[i] != -1)
-        {
-            code_length_keys_paths[i] = {code_length_codes[i], code_length_code_lengths[i]};
-            if (code_length_codes_verif[i] != code_length_keys_paths[i])
-                throw std::runtime_error("Code length code error!");
-        }
-    }
-    Huffman_Tree code_lengths_tree(code_length_keys_paths);
-    delete code_length_codes;
+    Huffman_Tree* code_lengths_tree = code_lengths_to_tree(code_length_code_lengths, 19, max_code_length_code_length);
 
     // Read lit_len code lengths
-    int read_codes = 0;
     int lit_len_code_lengths[num_lit_len];
     int max_lit_len_code_length = 0;
-    while (read_codes < num_lit_len)
-    {
-        const int code = code_lengths_tree.read_key(reader);
-        if (code < 16)
-            lit_len_code_lengths[read_codes++] = code;
-        else if (code == 16)
-        {
-            const int repeat = reader.read_number(2) + 3;
-            for (int i = 0; i < repeat; ++i)
-                lit_len_code_lengths[read_codes++] = lit_len_code_lengths[read_codes - 1];
-        }
-        else if (code == 17)
-        {
-            const int repeat = reader.read_number(3) + 3;
-            for (int i = 0; i < repeat; ++i)
-                lit_len_code_lengths[read_codes++] = 0;
-        }
-        else if (code == 18)
-        {
-            const int repeat = reader.read_number(7) + 11;
-            for (int i = 0; i < repeat; ++i)
-                lit_len_code_lengths[read_codes++] = 0;
-        }
-        else
-            throw std::runtime_error("Invalid code length code!");
-        if (lit_len_code_lengths[read_codes - 1] > max_lit_len_code_length)
-            max_lit_len_code_length = lit_len_code_lengths[read_codes - 1];
-    }
+    read_code_lengths(reader, code_lengths_tree, num_lit_len, max_lit_len_code_length, lit_len_code_lengths);
 
-    // Build lit_len tree from lit_len code lengths
-    int* lit_len_codes = codes_from_code_lengths(lit_len_code_lengths, num_lit_len, max_lit_len_code_length);
-    std::map<int, std::pair<int, int>> lit_len_codes_keys_paths;
-    for (int i = 0; i < num_lit_len; ++i)
-    {
-        if (lit_len_codes[i] != -1)
-        {
-            lit_len_codes_keys_paths[i] = {lit_len_codes[i], lit_len_code_lengths[i]};
-            if (lit_len_codes_verif[i] != lit_len_codes_keys_paths[i])
-                throw std::runtime_error("Lit len code error!");
-        }
-    }
-    Huffman_Tree lit_len_tree(lit_len_codes_keys_paths);
-    delete lit_len_codes;
+    // Build lit_len tree with the code lengths
+    Huffman_Tree* lit_len_tree = code_lengths_to_tree(lit_len_code_lengths, num_lit_len, max_lit_len_code_length);
 
     // Read dist code lengths
-    read_codes = 0;
     int dist_code_lengths[num_dist];
     int max_dist_code_length = 0;
-    while (read_codes < num_dist)
-    {
-        const int code = code_lengths_tree.read_key(reader);
-        if (code < 16)
-            dist_code_lengths[read_codes++] = code;
-        else if (code == 16)
-        {
-            const int repeat = reader.read_number(2) + 3;
-            for (int i = 0; i < repeat; ++i)
-                dist_code_lengths[read_codes++] = dist_code_lengths[read_codes - 1];
-        }
-        else if (code == 17)
-        {
-            const int repeat = reader.read_number(3) + 3;
-            for (int i = 0; i < repeat; ++i)
-                dist_code_lengths[read_codes++] = 0;
-        }
-        else if (code == 18)
-        {
-            const int repeat = reader.read_number(7) + 11;
-            for (int i = 0; i < repeat; ++i)
-                dist_code_lengths[read_codes++] = 0;
-        }
-        else
-            throw std::runtime_error("Invalid code length code!");
-        if (dist_code_lengths[read_codes - 1] > max_dist_code_length)
-            max_dist_code_length = dist_code_lengths[read_codes - 1];
-    }
+    read_code_lengths(reader, code_lengths_tree, num_dist, max_dist_code_length, dist_code_lengths);
 
-    // Build dist tree from dist code lengths
-    int* distance_codes = codes_from_code_lengths(dist_code_lengths, num_dist, max_dist_code_length);
-    std::map<int, std::pair<int, int>> dist_codes_keys_paths;
-    for (int i = 0; i < num_dist; ++i)
-    {
-        if (distance_codes[i] != -1)
-        {
-            dist_codes_keys_paths[i] = {distance_codes[i], dist_code_lengths[i]};
-            if (distance_codes_verif[i] != dist_codes_keys_paths[i])
-                throw std::runtime_error("Dist code error!");
-        }
-    }
-    Huffman_Tree dist_tree(dist_codes_keys_paths);
-    delete distance_codes;
+    // Build dist tree with the code lengths
+    Huffman_Tree* dist_tree = code_lengths_to_tree(dist_code_lengths, num_dist, max_dist_code_length);
 
-    return read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
+    // Read the data
+    std::vector<unsigned char> decompressed_data = read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
+
+    // Free memory
+    delete lit_len_tree;
+    delete dist_tree;
+    delete code_lengths_tree;
+
+    return decompressed_data;
 }
 
 void Deflate::Main::build_static_huffman_tree()
 {
-    std::map<int, std::pair<int, int>> keys_paths;
+    std::map<int, Deflate::Huffman_Tree::Code> keys_paths;
     int c = 0;
     for (int i = 0b00110000; i <= 0b10111111; i++)
         keys_paths[c++] = {i, 8};
@@ -242,40 +157,10 @@ std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data,
     // Spot matches
     std::list<Match*> matches = find_matches(data, size);
 
-    // Build dynamic huffman trees
-    std::unordered_map<int, int> lit_len_frequency_table;
-    std::unordered_map<int, int> dist_frequency_table;
-    int index = 0;
-    int nextMatchPos = !matches.empty() ? matches.front()->position() : size;
-    auto nextMatchIter = matches.begin();
-    while (index < size)
-    {
-        if (index == nextMatchPos)
-        {
-            int length_code = length_to_code((*nextMatchIter)->length());
-            int dist_code = distance_to_code((*nextMatchIter)->distance());
-
-            lit_len_frequency_table[length_code]++;
-            dist_frequency_table[dist_code]++;
-
-            index += (*nextMatchIter)->length();
-            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
-        }
-        else
-        {
-            lit_len_frequency_table[data[index]]++;
-            index++;
-        }
-    }
-    lit_len_frequency_table[256] = 1; // End of block
-    if (dist_frequency_table.empty()) // No match -> We provide a distance of 0
-    {
-        // Two distance codes are required to build a tree
-        dist_frequency_table[0] = 1;
-        dist_frequency_table[1] = 1;
-    }
-    Huffman_Tree lit_len_tree(lit_len_frequency_table);
-    Huffman_Tree dist_tree(dist_frequency_table);
+    // Compute the trees
+    Huffman_Tree* lit_len_tree;
+    Huffman_Tree* dist_tree;
+    compute_dynamic_trees(data, size, matches, lit_len_tree, dist_tree);
 
     /* Steps :
      * Build a list of code length for each lit/len and dist
@@ -287,132 +172,32 @@ std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data,
      * */
     int lit_len_code_lengths[286];
     int dist_code_lengths[30];
-    std::map<int, std::pair<int, int>> lit_len_codes = lit_len_tree.canonical_codes(15);
-    lit_len_codes_verif = lit_len_codes;
-    std::map<int, std::pair<int, int>> distance_codes = dist_tree.canonical_codes(15);
-    distance_codes_verif = distance_codes;
+    std::map<int, Deflate::Huffman_Tree::Code> lit_len_codes = lit_len_tree->canonical_codes(MAX_CODE_LENGTH);
+    std::map<int, Deflate::Huffman_Tree::Code> distance_codes = dist_tree->canonical_codes(MAX_CODE_LENGTH);
     for (int& lit_len_code_length : lit_len_code_lengths)
         lit_len_code_length = 0;
     for (int& dist_code_length : dist_code_lengths)
         dist_code_length = 0;
     for (const auto& [c, code_len] : lit_len_codes)
-        lit_len_code_lengths[c] = code_len.second;
+        lit_len_code_lengths[c] = code_len.length;
     for (const auto& [c, code_len] : distance_codes)
-        dist_code_lengths[c] = code_len.second;
+        dist_code_lengths[c] = code_len.length;
     std::unordered_map<int, int> code_lengths_frequency_table;
-    /** \brief Code lengths to write <br>
-     * 0-15 : raw length <br>
-     * 16 : 3-6 repeat <br>
-     * 17 : 3-10 0 <br>
-     * 18 : 11-138 0 <br>
-     * (code in [0, 18], length in [3, 138])
-     * */
-    std::vector<std::pair<int, int>> lit_len_code_lengths_to_write;
+
     // Lit/len
-    int j = 0;
-    while (j < 286)
-    {
-        int k = 1;
-        while (j + k < 286 && lit_len_code_lengths[j + k] == lit_len_code_lengths[j] && k < 138)
-            ++k;
-        if (k >= 3 && lit_len_code_lengths[j] == 0)
-        {
-            if (j + k == 286)
-                break; // Don't add the last 0s
-            int code = k < 11 ? 17 : 18;
-            code_lengths_frequency_table[code]++;
-            lit_len_code_lengths_to_write.emplace_back(code, k);
-        }
-        else if (k >= 4)
-        {
-            // Code to repeat
-            code_lengths_frequency_table[lit_len_code_lengths[j]]++;
-            lit_len_code_lengths_to_write.emplace_back(lit_len_code_lengths[j], 1);
-            // Repetition
-            const int rep = k - 1;
-            code_lengths_frequency_table[16] += rep / 6;
-            for (int i = 0; i < rep / 6; ++i)
-                lit_len_code_lengths_to_write.emplace_back(16, 6);
-            int l = rep % 6;
-            if (l > 2)
-            {
-                code_lengths_frequency_table[16]++;
-                lit_len_code_lengths_to_write.emplace_back(16, l);
-            }
-            else
-            {
-                code_lengths_frequency_table[lit_len_code_lengths[j]] += l;
-                for (int i = 0; i < l; ++i)
-                    lit_len_code_lengths_to_write.emplace_back(lit_len_code_lengths[j], 1);
-            }
-        }
-        else
-        {
-            code_lengths_frequency_table[lit_len_code_lengths[j]] += k;
-            for (int i = 0; i < k; ++i)
-                lit_len_code_lengths_to_write.emplace_back(lit_len_code_lengths[j], 1);
-        }
-        j += k;
-    }
-    const int provided_lit_len = j;
+    std::vector<std::pair<int, int>> lit_len_code_lengths_to_write;
+    const int provided_lit_len = enumerate_code_lengths(286, lit_len_code_lengths, 138,
+                                                        lit_len_code_lengths_to_write, code_lengths_frequency_table);
+
     // Distance
-    /** \brief Code lengths to write <br>
-     * 0-15 : raw length <br>
-     * 16 : 3-6 repeat <br>
-     * 17 : 3-10 0 <br>
-     * 18 : 11-138 0 <br>
-     * (code in [0, 18], length in [3, 138])
-     * */
     std::vector<std::pair<int, int>> dist_code_lengths_to_write;
-    j = 0;
-    while (j < 30)
-    {
-        int k = 1;
-        while (j + k < 30 && dist_code_lengths[j + k] == dist_code_lengths[j] && k < 30)
-            ++k;
-        if (k >= 3 && dist_code_lengths[j] == 0)
-        {
-            if (j + k == 30)
-                break; // Don't add the last 0s
-            int code = k < 11 ? 17 : 18;
-            code_lengths_frequency_table[code]++;
-            dist_code_lengths_to_write.emplace_back(code, k);
-        }
-        else if (k >= 4)
-        {
-            // Code to repeat
-            code_lengths_frequency_table[dist_code_lengths[j]]++;
-            dist_code_lengths_to_write.emplace_back(dist_code_lengths[j], 1);
-            // Repetition
-            const int rep = k - 1;
-            code_lengths_frequency_table[16] += rep / 6;
-            for (int i = 0; i < rep / 6; ++i)
-                dist_code_lengths_to_write.emplace_back(16, 6);
-            int l = rep % 6;
-            if (l > 2)
-            {
-                code_lengths_frequency_table[16]++;
-                dist_code_lengths_to_write.emplace_back(16, l);
-            }
-            else
-            {
-                code_lengths_frequency_table[dist_code_lengths[j]] += l;
-                for (int i = 0; i < l; ++i)
-                    dist_code_lengths_to_write.emplace_back(dist_code_lengths[j], 1);
-            }
-        }
-        else
-        {
-            code_lengths_frequency_table[dist_code_lengths[j]] += k;
-            for (int i = 0; i < k; ++i)
-                dist_code_lengths_to_write.emplace_back(dist_code_lengths[j], 1);
-        }
-        j += k;
-    }
-    const int provided_dist_codes = j;
+    const int provided_dist_codes = enumerate_code_lengths(30, dist_code_lengths, 30,
+                                                           dist_code_lengths_to_write, code_lengths_frequency_table);
+
+    // Code length code lengths
     Huffman_Tree code_lengths_tree(code_lengths_frequency_table);
-    std::map<int, std::pair<int, int>> code_length_codes = code_lengths_tree.canonical_codes(7);
-    code_length_codes_verif = code_length_codes;
+    std::map<int, Deflate::Huffman_Tree::Code> code_length_codes = code_lengths_tree.canonical_codes(
+            MAX_CODE_LENGTH_CODE_LENGTH);
 
     int num_code_length_code_length_to_write = 19;
     while (!code_length_codes.contains(code_length_codes_order[num_code_length_code_length_to_write - 1]) &&
@@ -428,94 +213,23 @@ std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data,
     writer.write_number(num_code_length_code_length_to_write - 4, 4);
     // Write the code length code lengths
     for (int k = 0; k < num_code_length_code_length_to_write; ++k)
-        writer.write_number(code_length_codes[code_length_codes_order[k]].second, 3);
-    int i = 0;
-    // Write the literal/length code lengths
-    for (const auto& [code_length, extra_bits_val] : lit_len_code_lengths_to_write)
-    {
-        writer.write_code(code_length_codes[code_length].first, code_length_codes[code_length].second);
-        switch (code_length)
-        {
-            case 16:
-                writer.write_number(extra_bits_val - 3, 2);
-                i += extra_bits_val;
-                break;
-            case 17:
-                writer.write_number(extra_bits_val - 3, 3);
-                i += extra_bits_val;
-                break;
-            case 18:
-                writer.write_number(extra_bits_val - 11, 7);
-                i += extra_bits_val;
-                break;
-            default:
-                i++;
-                break;
-        }
-    }
-    // Write the distance code lengths
-    for (const auto& [code_length, extra_bits_val] : dist_code_lengths_to_write)
-    {
-        writer.write_code(code_length_codes[code_length].first, code_length_codes[code_length].second);
-        switch (code_length)
-        {
-            case 16:
-                writer.write_number(extra_bits_val - 3, 2);
-                break;
-            case 17:
-                writer.write_number(extra_bits_val - 3, 3);
-                break;
-            case 18:
-                writer.write_number(extra_bits_val - 11, 7);
-                break;
-            default:
-                break;
-        }
-    }
+        writer.write_number(code_length_codes[code_length_codes_order[k]].length, 3);
 
-    // Write the encoded data
-    index = 0;
-    nextMatchPos = matches.empty() ? size : matches.front()->position();
-    nextMatchIter = matches.begin();
-    while (index < size)
-    {
-        if (index == nextMatchPos)
-        { // Write the match
-            // Write the match
-            const int length = (*nextMatchIter)->length();
-            const int length_code_value = length_to_code(length);
-            writer.write_code(lit_len_codes[length_code_value].first, lit_len_codes[length_code_value].second);
-            // Write the extra bits
-            const int extra_bits_value = length - lit_len_code_to_length[length_code_value];
-            const int num_extra_bits = lengths_extra_bits[length_code_value];
-            writer.write_number(extra_bits_value, num_extra_bits);
+    write_code_lengths(writer, lit_len_code_lengths_to_write, code_length_codes); // Write lit/len code lengths
+    write_code_lengths(writer, dist_code_lengths_to_write, code_length_codes); // Write distance code lengths
 
-            // Write the distance
-            const int distance = (*nextMatchIter)->distance();
-            const int distance_code_value = distance_to_code(distance);
-            writer.write_code(distance_codes[distance_code_value].first, distance_codes[distance_code_value].second);
-            // Write the extra bits
-            const int distance_extra_bits_value = distance - distance_code_to_distance[distance_code_value];
-            const int num_distance_extra_bits = distance_extra_bits[distance_code_value];
-            writer.write_number(distance_extra_bits_value, num_distance_extra_bits);
+    write_compressed_data(writer, data, size, matches, lit_len_codes, distance_codes); // Write compressed data
 
-            index += (*nextMatchIter)->length();
-            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
-        }
-        else
-        {
-            writer.write_code(lit_len_codes[data[index]].first, lit_len_codes[data[index]].second);
-            index++;
-        }
-    }
-
-    writer.write_code(lit_len_codes[256].first, lit_len_codes[256].second); // End of block
+    writer.write_code(lit_len_codes[256].code, lit_len_codes[256].length); // Write end of block
     writer.close();
 
     // Copy the data to a new array
     auto* compressed_data = new unsigned char[writer.data.size()];
     for (int ind = 0; ind < writer.data.size(); ++ind)
         compressed_data[ind] = writer.data[ind];
+
+    delete lit_len_tree;
+    delete dist_tree;
 
     return {compressed_data, writer.data.size()};
 }
@@ -562,16 +276,16 @@ std::pair<unsigned char*, int> Deflate::Main::inflate(const unsigned char* data,
 }
 
 /// \brief Computes codes from code lengths using the <b>algorithm described in RFC 1951 section 3.2.2</b>
-int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int num_codes,
+int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int num_symbols,
                                             const int max_code_length)
 {
     // Compute number of codes for each code length
     /// \brief bl_count[i] contains the number of codes of length i
     int bl_count[max_code_length + 1];
-    int* codes = new int[num_codes];
+    int* codes = new int[num_symbols];
     for (int i = 0; i <= max_code_length; i++)
         bl_count[i] = 0;
-    for (int i = 0; i < num_codes; ++i)
+    for (int i = 0; i < num_symbols; ++i)
     {
         if (code_lengths[i] > 0)
             bl_count[code_lengths[i]]++;
@@ -587,7 +301,7 @@ int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int 
     }
 
     // Assign codes to each symbol
-    for (int i = 0; i < num_codes; i++)
+    for (int i = 0; i < num_symbols; i++)
     {
         const int code_length = code_lengths[i];
         if (code_length > 0)
@@ -598,11 +312,11 @@ int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int 
     return codes;
 }
 
-std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree& lit_len_tree,
-                                                                    Huffman_Tree& dist_tree, Window& window)
+std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree* lit_len_tree,
+                                                                    Huffman_Tree* dist_tree, Window& window)
 {
     std::vector<unsigned char> data;
-    int lit_len = lit_len_tree.read_key(reader);
+    int lit_len = lit_len_tree->read_key(reader);
     while (lit_len != 256)
     {
         // Literal
@@ -617,7 +331,7 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
             if (const int extra_bits = lengths_extra_bits[lit_len])
                 len += reader.read_number(extra_bits);
             // Distance
-            const int dist_value = dist_tree.read_key(reader);
+            const int dist_value = dist_tree->read_key(reader);
             if (dist_value > 29)
                 throw std::runtime_error("Invalid distance!");
             int dist = distance_code_to_distance[dist_value];
@@ -626,7 +340,7 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
 
             for (int i = 0; i < len; ++i)
             {
-                char c = window.get(dist);
+                unsigned char c = window.get(dist);
                 data.push_back(c);
                 window.add(c);
             }
@@ -634,7 +348,7 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
         else
             throw std::runtime_error("Invalid dynamic huffman code!");
 
-        lit_len = lit_len_tree.read_key(reader);
+        lit_len = lit_len_tree->read_key(reader);
     }
 
     return data;
@@ -764,14 +478,14 @@ void Deflate::Main::Test()
         {
             const int data_size = std::min(BLOCK_SIZE, static_cast<int>(data.size()) - i);
             std::pair<unsigned char*, int> compressed = deflate((data.data() + i), data_size);
-            //std::pair<unsigned char*, int> decompressed = inflate(compressed.first);
+            std::pair<unsigned char*, int> decompressed = inflate(compressed.first);
             compressed_size += compressed.second;
 
-            /*for (int j = 0; j < data_size; ++j)
+            for (int j = 0; j < data_size; ++j)
             {
                 if (data[i + j] != decompressed.first[j])
                     std::cout << "Error at index " << j << "!" << std::endl;
-            }*/
+            }
         }
         auto end = std::chrono::steady_clock::now();
         std::cout << std::left << std::setw(15) << beautiful_size_display(compressed_size);
@@ -780,5 +494,222 @@ void Deflate::Main::Test()
                      100;
         std::cout << std::left << std::setw(15)
                   << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+    }
+}
+
+Deflate::Huffman_Tree*
+Deflate::Main::code_lengths_to_tree(int* code_lengths, const int num_symbols, const int max_length)
+{
+    int* code_length_codes = codes_from_code_lengths(code_lengths, num_symbols, max_length);
+    std::map<int, Deflate::Huffman_Tree::Code> code_length_keys_paths;
+    for (int i = 0; i < num_symbols; ++i)
+    {
+        if (code_length_codes[i] != -1)
+            code_length_keys_paths[i] = {code_length_codes[i], code_lengths[i]};
+    }
+    delete code_length_codes;
+
+    return new Huffman_Tree(code_length_keys_paths);
+}
+
+void
+Deflate::Main::read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::Huffman_Tree* tree,
+                                 const int num_symbols,
+                                 int& max_length, int* code_lengths)
+{
+    int read_codes = 0;
+    while (read_codes < num_symbols)
+    {
+        const int code = tree->read_key(reader);
+        switch (code)
+        {
+            case 16: // Repeat last code 3-6 times
+            {
+                const int repeat = reader.read_number(2) + 3;
+                for (int i = 0; i < repeat; ++i)
+                    code_lengths[read_codes++] = code_lengths[read_codes - 1];
+                break;
+            }
+            case 17: // Repeat 0 3-10 times
+            {
+                const int repeat = reader.read_number(3) + 3;
+                for (int i = 0; i < repeat; ++i)
+                    code_lengths[read_codes++] = 0;
+                break;
+            }
+            case 18: // Repeat 0 11-138 times
+            {
+                const int repeat = reader.read_number(7) + 11;
+                for (int i = 0; i < repeat; ++i)
+                    code_lengths[read_codes++] = 0;
+                break;
+            }
+            default: // Normal code length
+                if (code < 0 || code > 15)
+                    throw std::runtime_error("Invalid code length code!");
+                code_lengths[read_codes++] = code;
+                break;
+        }
+        // Update max length
+        if (code_lengths[read_codes - 1] > max_length)
+            max_length = code_lengths[read_codes - 1];
+    }
+}
+
+void Deflate::Main::compute_dynamic_trees(const unsigned char* data, const int size, std::list<Match*>& matches,
+                                          Deflate::Huffman_Tree*& lit_len_tree,
+                                          Deflate::Huffman_Tree*& dist_tree)
+{
+    std::unordered_map<int, int> lit_len_frequency_table;
+    std::unordered_map<int, int> dist_frequency_table;
+    int index = 0;
+    int nextMatchPos = !matches.empty() ? matches.front()->position() : size;
+    auto nextMatchIter = matches.begin();
+    while (index < size)
+    {
+        if (index == nextMatchPos)
+        {
+            int length_code = length_to_code((*nextMatchIter)->length());
+            int dist_code = distance_to_code((*nextMatchIter)->distance());
+
+            lit_len_frequency_table[length_code]++;
+            dist_frequency_table[dist_code]++;
+
+            index += (*nextMatchIter)->length();
+            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
+        }
+        else
+        {
+            lit_len_frequency_table[data[index]]++;
+            index++;
+        }
+    }
+    lit_len_frequency_table[256] = 1; // End of block
+    if (dist_frequency_table.empty()) // No match -> We provide a distance of 0
+    {
+        // Two distance codes are required to build a tree
+        dist_frequency_table[0] = 1;
+        dist_frequency_table[1] = 1;
+    }
+
+    lit_len_tree = new Huffman_Tree(lit_len_frequency_table);
+    dist_tree = new Huffman_Tree(dist_frequency_table);
+}
+
+int Deflate::Main::enumerate_code_lengths(int count, const int* code_lengths, const int max_repetition,
+                                          std::vector<std::pair<int, int>>& code_lengths_to_write,
+                                          std::unordered_map<int, int>& code_lengths_frequency_table)
+{
+    int j = 0;
+    while (j < count)
+    {
+        int k = 1;
+        while (j + k < count && code_lengths[j + k] == code_lengths[j] && k < max_repetition)
+            ++k;
+        if (k >= 3 && code_lengths[j] == 0)
+        {
+            if (j + k == count)
+                break; // Don't add the last 0s
+            int code = k < 11 ? 17 : 18;
+            code_lengths_frequency_table[code]++;
+            code_lengths_to_write.emplace_back(code, k);
+        }
+        else if (k >= 4)
+        {
+            // Code to repeat
+            code_lengths_frequency_table[code_lengths[j]]++;
+            code_lengths_to_write.emplace_back(code_lengths[j], 1);
+            // Repetition
+            const int rep = k - 1;
+            code_lengths_frequency_table[16] += rep / 6;
+            for (int i = 0; i < rep / 6; ++i)
+                code_lengths_to_write.emplace_back(16, 6);
+            int l = rep % 6;
+            if (l > 2)
+            {
+                code_lengths_frequency_table[16]++;
+                code_lengths_to_write.emplace_back(16, l);
+            }
+            else
+            {
+                code_lengths_frequency_table[code_lengths[j]] += l;
+                for (int i = 0; i < l; ++i)
+                    code_lengths_to_write.emplace_back(code_lengths[j], 1);
+            }
+        }
+        else
+        {
+            code_lengths_frequency_table[code_lengths[j]] += k;
+            for (int i = 0; i < k; ++i)
+                code_lengths_to_write.emplace_back(code_lengths[j], 1);
+        }
+        j += k;
+    }
+
+
+    return j;
+}
+
+void Deflate::Main::write_code_lengths(Deflate::Writer& writer, std::vector<std::pair<int, int>>& code_lengths,
+                                       std::map<int, Deflate::Huffman_Tree::Code>& code_length_codes)
+{
+    for (const auto& [code_length, extra_bits_val] : code_lengths)
+    {
+        writer.write_code(code_length_codes[code_length].code, code_length_codes[code_length].length);
+        switch (code_length)
+        {
+            case 16:
+                writer.write_number(extra_bits_val - 3, 2);
+                break;
+            case 17:
+                writer.write_number(extra_bits_val - 3, 3);
+                break;
+            case 18:
+                writer.write_number(extra_bits_val - 11, 7);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigned char* data, const int size,
+                                          std::list<Match*>& matches,
+                                          std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
+                                          std::map<int, Deflate::Huffman_Tree::Code>& distance_codes)
+{
+    int index = 0;
+    int nextMatchPos = matches.empty() ? size : matches.front()->position();
+    auto nextMatchIter = matches.begin();
+    while (index < size)
+    {
+        if (index == nextMatchPos)
+        {
+            // Write the match
+            const int length = (*nextMatchIter)->length();
+            const int length_code_value = length_to_code(length);
+            writer.write_code(lit_len_codes[length_code_value].code, lit_len_codes[length_code_value].length);
+            // Write the extra bits
+            const int extra_bits_value = length - lit_len_code_to_length[length_code_value];
+            const int num_extra_bits = lengths_extra_bits[length_code_value];
+            writer.write_number(extra_bits_value, num_extra_bits);
+
+            // Write the distance
+            const int distance = (*nextMatchIter)->distance();
+            const int distance_code_value = distance_to_code(distance);
+            writer.write_code(distance_codes[distance_code_value].code, distance_codes[distance_code_value].length);
+            // Write the extra bits
+            const int distance_extra_bits_value = distance - distance_code_to_distance[distance_code_value];
+            const int num_distance_extra_bits = distance_extra_bits[distance_code_value];
+            writer.write_number(distance_extra_bits_value, num_distance_extra_bits);
+
+            index += (*nextMatchIter)->length();
+            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
+        }
+        else
+        {
+            writer.write_code(lit_len_codes[data[index]].code, lit_len_codes[data[index]].length);
+            index++;
+        }
     }
 }

@@ -10,7 +10,7 @@ namespace Deflate
 
     class Window
     {
-        char data_[0x8000]{};
+        unsigned char data_[0x8000]{};
         int offset_ = 0;
         int size_ = 0;
 
@@ -19,7 +19,7 @@ namespace Deflate
 
         ~Window() = default;
 
-        void add(const char& c)
+        void add(const unsigned char& c)
         {
             data_[offset_++] = c;
             if (offset_ == 0x8000)
@@ -29,7 +29,7 @@ namespace Deflate
 
         }
 
-        [[nodiscard]] char get(const int offset) const
+        [[nodiscard]] unsigned char get(const int offset) const
         {
             const int m = offset_ - offset;
             return m < 0 ? data_[0x8000 + m] : data_[m % 0x8000];

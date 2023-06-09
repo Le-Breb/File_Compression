@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <ostream>
+#include <chrono>
 
 #include "ZipFile.h"
 #include "Compressors/Deflate/Main.h"
@@ -67,17 +68,31 @@ int main(int argc, char* argv[])
     for (int i = 0; i < d.second; ++i)
         std::cout << d.first[i];
     return 0;*/
+    /*std::ifstream reader(
+            R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\Museum Leap\Library\Bee\1900b0aEDbg.dag.json)");
+    int file_size = 0;
+    reader.seekg(0, std::ios::end);
+    file_size = reader.tellg();
+    reader.seekg(0, std::ios::beg);
+    auto* data = new unsigned char[file_size];
+    reader.read((char*) data, file_size);
+    std::cout << "File size: " << file_size << std::endl;
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    Deflate::Main::deflate(data, file_size);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()
+              << std::endl;
+    return 0;*/
     Deflate::Main::Test();
-    return 0;
     /*ZipFile zip_file;
     zip_file.add_file("../Data/someData.txt", "someData.txt");
     zip_file.write("../Data/someData_.zip");
-    show_file_content("../Data/someData_.zip");*/
+    show_file_content("../Data/someData_.zip");
     show_file_content("../Data/someData.zip");
-    ZipFile zip_file2("../Data/someData.zip");
+    ZipFile zip_file2("../Data/someData.zip");*/
 
     return 0;
-}//Todo: make window cross blocks
+}
 
 
 
@@ -86,9 +101,3 @@ int main(int argc, char* argv[])
 //ToDo: Procedurally check all dates and times
 //ToDo: Add support for directories
 //Todo: Make DEFLATE create blocks with BLOCK_SIZE symbols
-
-
-// Reminder : characters are encoded using a canonical huffman tree. This tree is encoded by only writing the code
-// lengths of the alphabet (which is the entire ASCII table). This is enough to be able to build the entire tree when
-// decoding the file. But the code lengths are themselves encoded using a huffman code defined in the DEFLATE
-// specifications.
