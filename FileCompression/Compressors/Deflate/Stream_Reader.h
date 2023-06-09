@@ -7,7 +7,8 @@
 
 #include <vector>
 
-namespace Deflate{
+namespace Deflate
+{
     /**
          * \brief Reader for compressed DEFLATE data.
          */
@@ -17,7 +18,8 @@ namespace Deflate{
         unsigned bit_index_ = 0;
         const unsigned char* data_;
     public:
-        Stream_Reader(const unsigned char* data, const unsigned offset) : byte_offset_{ offset }, data_ { data } {}
+        Stream_Reader(const unsigned char* data, const unsigned offset) : byte_offset_{offset}, data_{data}
+        {}
 
         /**
          * \brief Moves the reader to the next byte
@@ -97,9 +99,9 @@ namespace Deflate{
             return n;
         }
 
-        std::vector<char> read_bytes_v(const int count)
+        std::vector<unsigned char> read_bytes_v(const int count)
         {
-            std::vector<char> bytes;
+            std::vector<unsigned char> bytes;
             bytes.reserve(count);
             for (int i = 0; i < count; i++)
                 bytes.push_back(static_cast<char>(data_[byte_offset_++]));

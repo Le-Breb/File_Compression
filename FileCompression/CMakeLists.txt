@@ -12,22 +12,22 @@ add_executable(FileCompression
         Compressors/Deflate/Stream_Reader.cpp
         Compressors/Deflate/Window.h
         Compressors/Deflate/Window.cpp
-    MS-DOS/Date.cpp
-    MS-DOS/Date.h
-    MS-DOS/Time.cpp
-    MS-DOS/Time.h
-    CDFH.cpp
-    CDFH.h
-    CRC32.cpp
-    CRC32.h
-    EOCD.cpp
-    EOCD.h
-    Exceptions.cpp
-    Exceptions.h
-    File.cpp
-    File.h
-    FileCompression.cpp
-    LFH.cpp
-    LFH.h
-    ZipFile.cpp
-    ZipFile.h Base64.cpp Base64.h Compressors/Deflate/Stream_Reader.cpp Compressors/Deflate/Stream_Reader.h Compressors/Deflate/Window.cpp Compressors/Deflate/Window.h Compressors/Deflate/Match.cpp Compressors/Deflate/Match.h Compressors/Deflate/Stream_Writer.cpp Compressors/Deflate/Stream_Writer.h Compressors/Deflate/Writer.cpp Compressors/Deflate/Writer.h)
+        MS-DOS/Date.cpp
+        MS-DOS/Date.h
+        MS-DOS/Time.cpp
+        MS-DOS/Time.h
+        CDFH.cpp
+        CDFH.h
+        CRC32.cpp
+        CRC32.h
+        EOCD.cpp
+        EOCD.h
+        Exceptions.cpp
+        Exceptions.h
+        File.cpp
+        File.h
+        FileCompression.cpp
+        LFH.cpp
+        LFH.h
+        ZipFile.cpp
+        ZipFile.h Base64.cpp Base64.h Compressors/Deflate/Stream_Reader.cpp Compressors/Deflate/Stream_Reader.h Compressors/Deflate/Window.cpp Compressors/Deflate/Window.h Compressors/Deflate/Match.cpp Compressors/Deflate/Match.h Compressors/Deflate/Stream_Writer.cpp Compressors/Deflate/Stream_Writer.h Compressors/Deflate/Writer.cpp Compressors/Deflate/Writer.h)
