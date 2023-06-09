@@ -18,9 +18,9 @@ namespace Deflate
         static constexpr int MAX_CODE_LENGTH = 15;
         static constexpr int MAX_CODE_LENGTH_CODE_LENGTH = 7;
 
-        static std::pair<unsigned char*, int> deflate(const unsigned char* data, int size);
+        static std::vector<unsigned char> deflate(const unsigned char* data, int size);
 
-        static std::pair<unsigned char*, int> inflate(const unsigned char* data, int offset = 0);
+        static std::vector<unsigned char> inflate(std::vector<unsigned char> data);
 
         static void Test();
 

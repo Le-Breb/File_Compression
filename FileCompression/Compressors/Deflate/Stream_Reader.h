@@ -16,9 +16,9 @@ namespace Deflate
     {
         unsigned byte_offset_;
         unsigned bit_index_ = 0;
-        const unsigned char* data_;
+        const std::vector<unsigned char>* data_;
     public:
-        Stream_Reader(const unsigned char* data, const unsigned offset) : byte_offset_{offset}, data_{data}
+        explicit Stream_Reader(const std::vector<unsigned char>* data) : byte_offset_{0}, data_{data}
         {}
 
         /**
@@ -47,7 +47,7 @@ namespace Deflate
 
         bool read_bit()
         {
-            const bool bit = data_[byte_offset_] & (1 << bit_index_++);
+            const bool bit = (*data_)[byte_offset_] & (1 << bit_index_++);
             if (bit_index_ == 8)
             {
                 bit_index_ = 0;
@@ -68,7 +68,7 @@ namespace Deflate
 
             for (int i = 0; i < count; ++i)
             {
-                bits.push_back(data_[byte_offset_] & (1 << bit_index_++));
+                bits.push_back((*data_)[byte_offset_] & (1 << bit_index_++));
                 if (bit_index_ == 8)
                 {
                     bit_index_ = 0;
@@ -88,7 +88,7 @@ namespace Deflate
             int n = 0;
             for (int i = 0; i < bit_length; i++)
             {
-                n += ((data_[byte_offset_] & (1 << bit_index_)) >> bit_index_++) << i;
+                n += (((*data_)[byte_offset_] & (1 << bit_index_)) >> bit_index_++) << i;
                 if (bit_index_ == 8)
                 {
                     bit_index_ = 0;
@@ -104,7 +104,7 @@ namespace Deflate
             std::vector<unsigned char> bytes;
             bytes.reserve(count);
             for (int i = 0; i < count; i++)
-                bytes.push_back(static_cast<char>(data_[byte_offset_++]));
+                bytes.push_back(static_cast<char>((*data_)[byte_offset_++]));
 
             return bytes;
         }
@@ -113,7 +113,7 @@ namespace Deflate
         {
             char* bytes = new char[count];
             for (int i = 0; i < count; i++)
-                bytes[i] = static_cast<char>(data_[byte_offset_++]);
+                bytes[i] = static_cast<char>((*data_)[byte_offset_++]);
 
             return bytes;
         }

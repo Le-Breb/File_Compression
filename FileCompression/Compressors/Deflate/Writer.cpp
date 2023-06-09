@@ -5,7 +5,6 @@
 #include <stdexcept>
 #include "Writer.h"
 
-Deflate::Writer::Writer() = default;
 
 void Deflate::Writer::write_number(int number, int bit_length)
 {
@@ -23,7 +22,7 @@ void Deflate::Writer::write_bit(bool bit)
 void Deflate::Writer::write_curr_byte()
 {
     bit_index_ = 0;
-    data.emplace_back(curr_byte);
+    data->emplace_back(curr_byte);
     curr_byte = 0;
 }
 

@@ -18,7 +18,8 @@ namespace Deflate
         void write_curr_byte();
 
     public:
-        Writer();
+        explicit Writer(std::vector<unsigned char>* data) : data(data)
+        {}
 
         /**
          * \brief Writes a number of bits to the data in regular order
@@ -37,7 +38,7 @@ namespace Deflate
 
         void close();
 
-        std::vector<unsigned char> data;
+        std::vector<unsigned char>* data;
     };
 
 } // Deflate

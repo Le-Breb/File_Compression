@@ -152,7 +152,7 @@ void Deflate::Main::build_static_huffman_tree()
     static_huffman_tree_ = new Huffman_Tree(keys_paths);
 }
 
-std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data, int size)
+std::vector<unsigned char> Deflate::Main::deflate(const unsigned char* data, int size)
 {
     // Spot matches
     std::list<Match*> matches = find_matches(data, size);
@@ -205,7 +205,8 @@ std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data,
         --num_code_length_code_length_to_write;
 
     //Writing to file
-    Writer writer{};
+    std::vector<unsigned char> compressed_data;
+    Writer writer(&compressed_data);
     writer.write_number(1, 1); // BFINAL
     writer.write_number(2, 2); // BTYPE
     writer.write_number(provided_lit_len - 257, 5);
@@ -223,50 +224,44 @@ std::pair<unsigned char*, int> Deflate::Main::deflate(const unsigned char* data,
     writer.write_code(lit_len_codes[256].code, lit_len_codes[256].length); // Write end of block
     writer.close();
 
-    // Copy the data to a new array
-    auto* compressed_data = new unsigned char[writer.data.size()];
-    for (int ind = 0; ind < writer.data.size(); ++ind)
-        compressed_data[ind] = writer.data[ind];
-
     delete lit_len_tree;
     delete dist_tree;
 
-    return {compressed_data, writer.data.size()};
+    return compressed_data;
 }
 
-std::pair<unsigned char*, int> Deflate::Main::inflate(const unsigned char* data, int offset)
+std::vector<unsigned char> Deflate::Main::inflate(const std::vector<unsigned char> data)
 {
     // Build static huffman tree if not already built
     if (static_huffman_tree_ == nullptr)
         build_static_huffman_tree();
     try
     {
-        int off = offset;
         std::vector<std::vector<unsigned char>> inflated_blocks;
-        Stream_Reader reader(data, offset);
+        Stream_Reader reader(&data);
         std::pair<bool, std::vector<unsigned char>> inflation;
         Window window{};
         do
         {
             inflation = decompress_block(reader, window);
             inflated_blocks.push_back(inflation.second);
-            off += static_cast<int>(inflation.second.size());
         } while (!inflation.first);
 
         int inflated_size = 0;
         for (const auto& inflated_block : inflated_blocks)
             inflated_size += static_cast<int>(inflated_block.size());
 
-        auto* inflated_data = new unsigned char[inflated_size];
+        std::vector<unsigned char> inflated_data(inflated_size);
+        inflated_data.reserve(inflated_size);
 
-        off = 0;
+        int i = 0;
         for (const auto& inflatedBlock : inflated_blocks)
         {
-            for (const unsigned char c : inflatedBlock)
-                inflated_data[off++] = c;
+            inflated_data.insert(inflated_data.begin() + i, inflatedBlock.begin(), inflatedBlock.end());
+            i += static_cast<int>(inflatedBlock.size());
         }
 
-        return {inflated_data, inflated_size};
+        return inflated_data;
     }
     catch (std::exception& e)
     {
@@ -477,13 +472,13 @@ void Deflate::Main::Test()
         for (int i = 0; i < static_cast<int>(data.size()); i += BLOCK_SIZE)
         {
             const int data_size = std::min(BLOCK_SIZE, static_cast<int>(data.size()) - i);
-            std::pair<unsigned char*, int> compressed = deflate((data.data() + i), data_size);
-            std::pair<unsigned char*, int> decompressed = inflate(compressed.first);
-            compressed_size += compressed.second;
+            std::vector<unsigned char> compressed = deflate((data.data() + i), data_size);
+            std::vector<unsigned char> decompressed = inflate(compressed);
+            compressed_size += static_cast<int>(compressed.size());
 
             for (int j = 0; j < data_size; ++j)
             {
-                if (data[i + j] != decompressed.first[j])
+                if (data[i + j] != decompressed[j])
                     std::cout << "Error at index " << j << "!" << std::endl;
             }
         }
