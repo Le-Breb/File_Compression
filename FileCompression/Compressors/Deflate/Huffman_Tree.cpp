@@ -126,10 +126,16 @@ std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_code
                 symbols_per_bit_len.erase(q);
             symbols_per_bit_len[q + 1].emplace_back(symbols_per_bit_len[bl].back());
             symbols_per_bit_len[bl].pop_back();
-            symbols_per_bit_len[bl - 1].emplace_back(symbols_per_bit_len[bl].back());
-            symbols_per_bit_len[bl].pop_back();
             if (symbols_per_bit_len[bl].empty())
                 symbols_per_bit_len.erase(bl);
+            else
+            {
+                symbols_per_bit_len[bl - 1].emplace_back(symbols_per_bit_len[bl].back());
+                symbols_per_bit_len[bl].pop_back();
+                if (symbols_per_bit_len[bl].empty())
+                    symbols_per_bit_len.erase(bl);
+            }
+
             overflow = true;
             break;
         }
@@ -154,3 +160,45 @@ std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_code
     return res;
 }
 
+Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
+{
+    bool uniqueElement = true;
+    int first_element_index = -1;
+    int c = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        if (frequency_table[i] != 0)
+        {
+            c++;
+            if (c == 1)
+                first_element_index = i;
+            else if (c > 1)
+            {
+                uniqueElement = false;
+                break;
+            }
+        }
+    }
+    if (uniqueElement)
+    {
+        root_ = new Node(-1, new Node(frequency_table[first_element_index], nullptr, nullptr), nullptr);
+        return;
+    }
+
+    std::priority_queue<std::pair<int, Node*>, std::vector<std::pair<int, Node*>>, ascending> q;
+    for (int i = 0; i < size; ++i)
+        q.emplace(frequency_table[i], new Node(i, nullptr, nullptr));
+
+    while (q.size() > 1)
+    {
+        std::pair<int, Node*> n1 = q.top();
+        q.pop();
+        std::pair<int, Node*> n2 = q.top();
+        q.pop();
+        int freq = n1.first + n2.first;
+        Node* n = new Node(-1, n2.second, n1.second);
+        q.emplace(freq, n);
+    }
+
+    root_ = q.top().second;
+}

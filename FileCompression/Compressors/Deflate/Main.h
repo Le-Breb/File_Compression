@@ -25,10 +25,11 @@ namespace Deflate
         static void Test();
 
     private:
-        static void write_compressed_data(Deflate::Writer& writer, const unsigned char* data, int size,
-                                          std::list<Match*>& matches,
-                                          std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
-                                          std::map<int, Deflate::Huffman_Tree::Code>& distance_codes);
+        static void
+        write_compressed_data(Deflate::Writer& writer, const unsigned char* data, int offset, int size,
+                              std::list<Match>& matches,
+                              std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
+                              std::map<int, Deflate::Huffman_Tree::Code>& distance_codes);
 
         static void
         write_code_lengths(Deflate::Writer& writer, std::vector<std::pair<int, int>>& code_lengths,
@@ -40,16 +41,12 @@ namespace Deflate
 
         static Huffman_Tree* code_lengths_to_tree(int* code_lengths, int num_symbols, int max_length);
 
-        static void compute_dynamic_trees(const unsigned char* data, int size, std::list<Match*>& matches,
-                                          Deflate::Huffman_Tree*& lit_len_tree,
-                                          Deflate::Huffman_Tree*& dist_tree);
-
         static void
         read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::Huffman_Tree* tree, int num_symbols,
                           int& max_length,
                           int* code_lengths);
 
-        static constexpr int BLOCK_SIZE = 16384;
+        static constexpr int MAX_SYMBOLS_PER_BLOCK = 16384;
 
         /** \brief Computes the code of the value range in which the given length is */
         static int length_to_code(int length);
@@ -57,7 +54,9 @@ namespace Deflate
         /** \brief Computes the code of the value range in which the given distance is */
         static int distance_to_code(int distance);
 
-        static std::list<Match*> find_matches(const unsigned char* data, int size, int offset = 0);
+        static int compute_dynamic_trees(const unsigned char* data, int offset, int size, std::list<Match>& matches,
+                                         Deflate::Huffman_Tree*& lit_len_tree,
+                                         Deflate::Huffman_Tree*& dist_tree);
 
         /** \brief Decompresses a block of data using the DEFLATE algorithm
          * @param reader A DEFLATE reader for the compressed data
@@ -74,6 +73,13 @@ namespace Deflate
 
         /** \brief Reads a DEFLATE block compressed with dynamic Huffman coding */
         static std::vector<unsigned char> get_dynamic_huffman_data(Stream_Reader& reader, Window& window);
+
+        enum class Block_Type : int
+        {
+            STORED = 0,
+            FIXED_HUFFMAN = 1,
+            DYNAMIC_HUFFMAN = 2
+        };
 
         /** \brief Reads compressed data of DEFLATE block compressed with dynamic Huffman coding
          * @param reader A DEFLATE reader for the compressed data

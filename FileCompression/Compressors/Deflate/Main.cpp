@@ -154,79 +154,94 @@ void Deflate::Main::build_static_huffman_tree()
 
 std::vector<unsigned char> Deflate::Main::deflate(const unsigned char* data, int size)
 {
-    // Spot matches
-    std::list<Match*> matches = find_matches(data, size);
-
-    // Compute the trees
-    Huffman_Tree* lit_len_tree;
-    Huffman_Tree* dist_tree;
-    compute_dynamic_trees(data, size, matches, lit_len_tree, dist_tree);
-
-    /* Steps :
-     * Build a list of code length for each lit/len and dist
-     * Enumerate them and store how many times we need to say the raw length, how many
-     * times we can duplicate the last one 3-6 times, how many times in a row the code 0 appears
-     * (for both ranges 3-10 and 11-138).
-     * Build a huffman tree out of those 19 values (0-15 => raw length, 16 => 3-6 repeat, 17 => 3-10 0, 18 => 11-138 0)
-     * Write the 19 code lengths int the order 16 17 18 0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15
-     * */
-    int lit_len_code_lengths[286];
-    int dist_code_lengths[30];
-    std::map<int, Deflate::Huffman_Tree::Code> lit_len_codes = lit_len_tree->canonical_codes(MAX_CODE_LENGTH);
-    std::map<int, Deflate::Huffman_Tree::Code> distance_codes = dist_tree->canonical_codes(MAX_CODE_LENGTH);
-    for (int& lit_len_code_length : lit_len_code_lengths)
-        lit_len_code_length = 0;
-    for (int& dist_code_length : dist_code_lengths)
-        dist_code_length = 0;
-    for (const auto& [c, code_len] : lit_len_codes)
-        lit_len_code_lengths[c] = code_len.length;
-    for (const auto& [c, code_len] : distance_codes)
-        dist_code_lengths[c] = code_len.length;
-    std::unordered_map<int, int> code_lengths_frequency_table;
-
-    // Lit/len
-    std::vector<std::pair<int, int>> lit_len_code_lengths_to_write;
-    const int provided_lit_len = enumerate_code_lengths(286, lit_len_code_lengths, 138,
-                                                        lit_len_code_lengths_to_write, code_lengths_frequency_table);
-
-    // Distance
-    std::vector<std::pair<int, int>> dist_code_lengths_to_write;
-    const int provided_dist_codes = enumerate_code_lengths(30, dist_code_lengths, 30,
-                                                           dist_code_lengths_to_write, code_lengths_frequency_table);
-
-    // Code length code lengths
-    Huffman_Tree code_lengths_tree(code_lengths_frequency_table);
-    std::map<int, Deflate::Huffman_Tree::Code> code_length_codes = code_lengths_tree.canonical_codes(
-            MAX_CODE_LENGTH_CODE_LENGTH);
-
-    int num_code_length_code_length_to_write = 19;
-    while (!code_length_codes.contains(code_length_codes_order[num_code_length_code_length_to_write - 1]) &&
-           num_code_length_code_length_to_write >= 0)
-        --num_code_length_code_length_to_write;
-
-    //Writing to file
+    int ind = 0;
     std::vector<unsigned char> compressed_data;
     Writer writer(&compressed_data);
-    writer.write_number(1, 1); // BFINAL
-    writer.write_number(2, 2); // BTYPE
-    writer.write_number(provided_lit_len - 257, 5);
-    writer.write_number(provided_dist_codes - 1, 5);
-    writer.write_number(num_code_length_code_length_to_write - 4, 4);
-    // Write the code length code lengths
-    for (int k = 0; k < num_code_length_code_length_to_write; ++k)
-        writer.write_number(code_length_codes[code_length_codes_order[k]].length, 3);
+    while (ind < size) // While there is data to compress
+    {
+        Huffman_Tree* lit_len_tree;
+        Huffman_Tree* dist_tree;
+        std::list<Match> matches;
+        int uncompressed_block_size = compute_dynamic_trees(data, ind, size, matches, lit_len_tree, dist_tree);
 
-    write_code_lengths(writer, lit_len_code_lengths_to_write, code_length_codes); // Write lit/len code lengths
-    write_code_lengths(writer, dist_code_lengths_to_write, code_length_codes); // Write distance code lengths
+        // Compute the trees
+        //compute_dynamic_trees(data, uncompressed_block_size, matches, lit_len_tree, dist_tree);
 
-    write_compressed_data(writer, data, size, matches, lit_len_codes, distance_codes); // Write compressed data
+        /* Steps :
+         * Build uncompressed_block_size list of code length for each lit/len and dist
+         * Enumerate them and store how many times we need to say the raw length, how many
+         * times we can duplicate the last one 3-6 times, how many times in uncompressed_block_size row the code 0 appears
+         * (for both ranges 3-10 and 11-138).
+         * Build uncompressed_block_size huffman tree out of those 19 values (0-15 => raw length, 16 => 3-6 repeat, 17 => 3-10 0, 18 => 11-138 0)
+         * Write the 19 code lengths int the order 16 17 18 0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15
+         * */
+        int lit_len_code_lengths[286];
+        int dist_code_lengths[30];
+        std::map<int, Deflate::Huffman_Tree::Code> lit_len_codes = lit_len_tree->canonical_codes(MAX_CODE_LENGTH);
+        std::map<int, Deflate::Huffman_Tree::Code> distance_codes = dist_tree->canonical_codes(MAX_CODE_LENGTH);
+        for (int& lit_len_code_length : lit_len_code_lengths)
+            lit_len_code_length = 0;
+        for (int& dist_code_length : dist_code_lengths)
+            dist_code_length = 0;
+        for (const auto& [c, code_len] : lit_len_codes)
+            lit_len_code_lengths[c] = code_len.length;
+        for (const auto& [c, code_len] : distance_codes)
+            dist_code_lengths[c] = code_len.length;
+        std::unordered_map<int, int> code_lengths_frequency_table;
 
-    writer.write_code(lit_len_codes[256].code, lit_len_codes[256].length); // Write end of block
+        // Lit/len
+        std::vector<std::pair<int, int>> lit_len_code_lengths_to_write;
+        const int provided_lit_len = enumerate_code_lengths(286, lit_len_code_lengths, 138,
+                                                            lit_len_code_lengths_to_write,
+                                                            code_lengths_frequency_table);
+
+        // Distance
+        std::vector<std::pair<int, int>> dist_code_lengths_to_write;
+        const int provided_dist_codes = enumerate_code_lengths(30, dist_code_lengths, 30,
+                                                               dist_code_lengths_to_write,
+                                                               code_lengths_frequency_table);
+
+        // Code length code lengths
+        Huffman_Tree code_lengths_tree(code_lengths_frequency_table);
+        std::map<int, Deflate::Huffman_Tree::Code> code_length_codes = code_lengths_tree.canonical_codes(
+                MAX_CODE_LENGTH_CODE_LENGTH);
+
+        int num_code_length_code_length_to_write = 19;
+        while (!code_length_codes.contains(code_length_codes_order[num_code_length_code_length_to_write - 1]) &&
+               num_code_length_code_length_to_write >= 0)
+            --num_code_length_code_length_to_write;
+
+        //Writing to file
+        //int b = writer.data->size();
+        writer.write_number(ind + uncompressed_block_size == size, 1); // BFINAL
+        writer.write_number(2, 2); // BTYPE
+        writer.write_number(provided_lit_len - 257, 5);
+        writer.write_number(provided_dist_codes - 1, 5);
+        writer.write_number(num_code_length_code_length_to_write - 4, 4);
+        // Write the code length code lengths
+        for (int k = 0; k < num_code_length_code_length_to_write; ++k)
+            writer.write_number(code_length_codes[code_length_codes_order[k]].length, 3);
+
+        write_code_lengths(writer, lit_len_code_lengths_to_write, code_length_codes); // Write lit/len code lengths
+        write_code_lengths(writer, dist_code_lengths_to_write, code_length_codes); // Write distance code lengths
+
+        //int c = writer.data->size() - b;
+        //std::cout << std::endl << c << " " << (ind - uncompressed_block_size) << std::endl;
+
+        write_compressed_data(writer, data, ind, uncompressed_block_size, matches,
+                              lit_len_codes,
+                              distance_codes); // Write compressed data
+        //std::cout << (writer.data->size() - c) << std::endl;
+        writer.write_code(lit_len_codes[256].code, lit_len_codes[256].length); // Write end of block
+
+        delete lit_len_tree;
+        delete dist_tree;
+
+        ind += uncompressed_block_size;
+    }
+
+
     writer.close();
-
-    delete lit_len_tree;
-    delete dist_tree;
-
     return compressed_data;
 }
 
@@ -349,60 +364,96 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
     return data;
 }
 
-std::list<Deflate::Match*> Deflate::Main::find_matches(const unsigned char* data, int size, int offset)
+int Deflate::Main::compute_dynamic_trees(const unsigned char* data, int offset, int size,
+                                         std::list<Match>& matches, Deflate::Huffman_Tree*& lit_len_tree,
+                                         Deflate::Huffman_Tree*& dist_tree)
 {
-    std::list<Match*> matches;
-    std::unordered_map<int, std::list<int>> q;
+    //long long a = 0;
+    std::unordered_map<int, std::vector<int>> q;
+    std::unordered_map<int, int> lit_len_frequency_table;
+    lit_len_frequency_table[256] = 1; // End of block
+    std::unordered_map<int, int> dist_frequency_table;
     bool matchOnPreviousByte = false;
     int ind = offset;
-    while (ind < size - 2)
+    int num_symbols = 1; // End of block
+    while (ind < size - 2 && num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
         const int h = data[ind] << 16 | data[ind + 1] << 8 | data[ind + 2];
         bool match = q.contains(h);
         if (!match)
-            q[h] = {ind++};
+        {
+            num_symbols++;
+            lit_len_frequency_table[data[ind]]++;
+            q[h] = {ind};
+            ind++;
+        }
         else
         {
-            auto* bestMatch = new Match(-1, -1, -1);
-            for (auto j : q[h])
+            //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+            Match bestMatch(-1, -1, -1);
+            auto cop = q[h];
+            for (int i = static_cast<int>(cop.size()) - 1; i >= 0; --i)
             {
-                if (ind - j > 32768) continue;
+                const int j = cop[i];
+                if (ind - j > 32768)
+                    break; // Matches can be at most 32768 bytes away
                 int len = 3;
                 while (ind + len < size && data[j + len] == data[ind + len] && len < 258)
                     ++len;
-                if (len > bestMatch->length())
-                {
-                    delete bestMatch;
-                    bestMatch = new Match(ind, len, ind - j);
-                }
+                if (len > bestMatch.length())
+                    bestMatch = Match(ind, len, ind - j);
             }
+            //std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            //a += std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
             // All matches are too far away
-            if (bestMatch->length() == -1)
+            if (bestMatch.length() == -1)
             {
                 q[h].emplace_back(ind++);
                 continue;
             }
             // Lazy matching
-            if (matchOnPreviousByte && bestMatch->length() > matches.back()->length())
-            {
-                delete matches.back();
-                matches.pop_back();
-            }
+            //if (matchOnPreviousByte && bestMatch->length() > matches.back()->length())
+            //{
+            //    num_symbols--;
+            //    lit_len_frequency_table[length_to_code(matches.back()->length())]--;
+            //    dist_frequency_table[distance_to_code(matches.back()->distance())]--;
+            //    delete matches.back();
+            //    matches.pop_back();
+            //}
             matches.push_back(bestMatch);
-            q[h].push_back(ind);
+            int length_code = length_to_code(bestMatch.length());
+            int dist_code = distance_to_code(bestMatch.distance());
+
+            lit_len_frequency_table[length_code]++;
+            dist_frequency_table[dist_code]++;
+            num_symbols++;
+            q[h].emplace_back(ind);
             // Add the hashes for the bytes in the match
-            for (int i = 1; i < bestMatch->length(); ++i)
+            for (int i = 1; i < bestMatch.length(); ++i)
             {
                 ind++;
                 const int h2 = data[ind] << 16 | data[ind + 1] << 8 | data[ind + 2];
-                q[h2].push_back(ind);
+                q[h2].emplace_back(ind);
             }
             ind++;
         }
         matchOnPreviousByte = match;
     }
 
-    return matches;
+    if (dist_frequency_table.empty()) // No match -> We provide a distance of 0
+    {
+        // Two distance codes are required to build a tree
+        dist_frequency_table[0] = 1;
+        dist_frequency_table[1] = 1;
+    }
+
+    lit_len_tree = new Huffman_Tree(lit_len_frequency_table);
+    dist_tree = new Huffman_Tree(dist_frequency_table);
+
+    //std::cout << std::endl << num_symbols << " " << matches.size() << std::endl;
+    //std::cout << "Time to compute dynamic trees: " << a / 1000000 << "ms" << std::endl;
+
+    return num_symbols < MAX_SYMBOLS_PER_BLOCK ? size - offset : ind - offset;
 }
 
 int Deflate::Main::length_to_code(const int length)
@@ -453,7 +504,7 @@ void Deflate::Main::Test()
     std::ifstream in;
     for (const auto& file_name : std::filesystem::directory_iterator("../Data/calgaryCorpus"))
     {
-        /*if (file_name.path() != "../Data/calgaryCorpus\\pic")
+        /*if (file_name.path() != "../Data/calgaryCorpus\\pic"*//* && file_name.path() != "../Data/calgaryCorpus\\obj2"*//*)
             continue;*/
         in.open(file_name.path(), std::ios::binary);
         std::cout << std::left << std::setw(20) << file_name.path().filename().string();
@@ -468,27 +519,26 @@ void Deflate::Main::Test()
 
         // Compress the file block by block
         auto start = std::chrono::steady_clock::now();
-        int compressed_size = 0;
-        for (int i = 0; i < static_cast<int>(data.size()); i += BLOCK_SIZE)
-        {
-            const int data_size = std::min(BLOCK_SIZE, static_cast<int>(data.size()) - i);
-            std::vector<unsigned char> compressed = deflate((data.data() + i), data_size);
-            std::vector<unsigned char> decompressed = inflate(compressed);
-            compressed_size += static_cast<int>(compressed.size());
-
-            for (int j = 0; j < data_size; ++j)
-            {
-                if (data[i + j] != decompressed[j])
-                    std::cout << "Error at index " << j << "!" << std::endl;
-            }
-        }
+        const int data_size = static_cast<int>(data.size());
+        std::vector<unsigned char> compressed = deflate(data.data(), data_size);
         auto end = std::chrono::steady_clock::now();
+
+        const int compressed_size = static_cast<int>(compressed.size());
         std::cout << std::left << std::setw(15) << beautiful_size_display(compressed_size);
         std::cout << std::left << std::setw(15) << std::fixed << std::setprecision(2)
                   << round((1 - (static_cast<double>(compressed_size) / static_cast<double>(data.size()))) * 10000) /
                      100;
         std::cout << std::left << std::setw(15)
                   << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+
+        // Decompress the file to check if it is correct
+        std::vector<unsigned char> decompressed = inflate(compressed);
+
+        for (int i = 0; i < data_size; ++i)
+        {
+            if (data[i] != decompressed[i])
+                std::cout << "Error at index " << i << "!" << std::endl;
+        }
     }
 }
 
@@ -549,46 +599,6 @@ Deflate::Main::read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::
         if (code_lengths[read_codes - 1] > max_length)
             max_length = code_lengths[read_codes - 1];
     }
-}
-
-void Deflate::Main::compute_dynamic_trees(const unsigned char* data, const int size, std::list<Match*>& matches,
-                                          Deflate::Huffman_Tree*& lit_len_tree,
-                                          Deflate::Huffman_Tree*& dist_tree)
-{
-    std::unordered_map<int, int> lit_len_frequency_table;
-    std::unordered_map<int, int> dist_frequency_table;
-    int index = 0;
-    int nextMatchPos = !matches.empty() ? matches.front()->position() : size;
-    auto nextMatchIter = matches.begin();
-    while (index < size)
-    {
-        if (index == nextMatchPos)
-        {
-            int length_code = length_to_code((*nextMatchIter)->length());
-            int dist_code = distance_to_code((*nextMatchIter)->distance());
-
-            lit_len_frequency_table[length_code]++;
-            dist_frequency_table[dist_code]++;
-
-            index += (*nextMatchIter)->length();
-            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
-        }
-        else
-        {
-            lit_len_frequency_table[data[index]]++;
-            index++;
-        }
-    }
-    lit_len_frequency_table[256] = 1; // End of block
-    if (dist_frequency_table.empty()) // No match -> We provide a distance of 0
-    {
-        // Two distance codes are required to build a tree
-        dist_frequency_table[0] = 1;
-        dist_frequency_table[1] = 1;
-    }
-
-    lit_len_tree = new Huffman_Tree(lit_len_frequency_table);
-    dist_tree = new Huffman_Tree(dist_frequency_table);
 }
 
 int Deflate::Main::enumerate_code_lengths(int count, const int* code_lengths, const int max_repetition,
@@ -668,20 +678,21 @@ void Deflate::Main::write_code_lengths(Deflate::Writer& writer, std::vector<std:
     }
 }
 
-void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigned char* data, const int size,
-                                          std::list<Match*>& matches,
+void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigned char* data, const int offset,
+                                          const int size,
+                                          std::list<Match>& matches,
                                           std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
                                           std::map<int, Deflate::Huffman_Tree::Code>& distance_codes)
 {
-    int index = 0;
-    int nextMatchPos = matches.empty() ? size : matches.front()->position();
+    int index = offset;
+    int nextMatchPos = matches.empty() ? size : matches.front().position();
     auto nextMatchIter = matches.begin();
-    while (index < size)
+    while (index < offset + size)
     {
         if (index == nextMatchPos)
         {
             // Write the match
-            const int length = (*nextMatchIter)->length();
+            const int length = (*nextMatchIter).length();
             const int length_code_value = length_to_code(length);
             writer.write_code(lit_len_codes[length_code_value].code, lit_len_codes[length_code_value].length);
             // Write the extra bits
@@ -690,7 +701,7 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigne
             writer.write_number(extra_bits_value, num_extra_bits);
 
             // Write the distance
-            const int distance = (*nextMatchIter)->distance();
+            const int distance = (*nextMatchIter).distance();
             const int distance_code_value = distance_to_code(distance);
             writer.write_code(distance_codes[distance_code_value].code, distance_codes[distance_code_value].length);
             // Write the extra bits
@@ -698,8 +709,8 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigne
             const int num_distance_extra_bits = distance_extra_bits[distance_code_value];
             writer.write_number(distance_extra_bits_value, num_distance_extra_bits);
 
-            index += (*nextMatchIter)->length();
-            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter)->position();
+            index += (*nextMatchIter).length();
+            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter).position();
         }
         else
         {
