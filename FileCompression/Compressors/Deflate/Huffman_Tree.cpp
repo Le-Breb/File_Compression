@@ -207,3 +207,14 @@ Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
 
     root_ = q.top().second;
 }
+
+Deflate::Huffman_Tree::Huffman_Tree(const Deflate::Huffman_Tree::Code* codes, int num_codes)
+{
+    root_ = new Node(-1, nullptr, nullptr);
+
+    for (int i = 0; i < num_codes; ++i)
+    {
+        if (codes[i].length != 0)
+            add(root_, i, codes[i].code, codes[i].length);
+    }
+}

@@ -68,6 +68,8 @@ namespace Deflate
         /** \brief Builds a Huffman tree with a symbol => (code, code_length) dict */
         explicit Huffman_Tree(const std::map<int, Code>& tree);
 
+        explicit Huffman_Tree(const Code* codes, int num_codes);
+
         explicit Huffman_Tree(const int* frequency_table, int size);
 
         ~Huffman_Tree()

@@ -531,16 +531,17 @@ void Deflate::Main::Test()
 Deflate::Huffman_Tree*
 Deflate::Main::code_lengths_to_tree(int* code_lengths, const int num_symbols, const int max_length)
 {
-    int* code_length_codes = codes_from_code_lengths(code_lengths, num_symbols, max_length);
-    std::map<int, Deflate::Huffman_Tree::Code> code_length_keys_paths;
+    int* codes = codes_from_code_lengths(code_lengths, num_symbols, max_length);
+    auto* code_length_keys_paths = new Deflate::Huffman_Tree::Code[num_symbols];
     for (int i = 0; i < num_symbols; ++i)
     {
-        if (code_length_codes[i] != -1)
-            code_length_keys_paths[i] = {code_length_codes[i], code_lengths[i]};
+        code_length_keys_paths[i] =
+                codes[i] == -1 ? Deflate::Huffman_Tree::Code(0, 0) : Deflate::Huffman_Tree::Code(codes[i],
+                                                                                                 code_lengths[i]);
     }
-    delete code_length_codes;
+    delete codes;
 
-    return new Huffman_Tree(code_length_keys_paths);
+    return new Huffman_Tree(code_length_keys_paths, num_symbols);
 }
 
 void
