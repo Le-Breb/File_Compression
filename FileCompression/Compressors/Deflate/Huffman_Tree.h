@@ -60,10 +60,10 @@ namespace Deflate
         /** \brief Computes canonical codes in a symbol => (code, code_length) dict
          * @param max_bit_length The maximum bit length of the computed codes
          * */
-        [[nodiscard]] std::map<int, Code> canonical_codes(int max_bit_length) const;
+        [[nodiscard]] Code* canonical_codes(int num_codes, int max_bit_length) const;
 
         /** \brief Builds a Huffman tree with a symbol => num_occurrences dict */
-        explicit Huffman_Tree(const std::unordered_map<int, int>& frequency_table);
+        //explicit Huffman_Tree(const std::unordered_map<int, int>& frequency_table);
 
         /** \brief Builds a Huffman tree with a symbol => (code, code_length) dict */
         explicit Huffman_Tree(const std::map<int, Code>& tree);

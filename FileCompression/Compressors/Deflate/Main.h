@@ -28,16 +28,16 @@ namespace Deflate
         static void
         write_compressed_data(Deflate::Writer& writer, const unsigned char* data, int offset, int size,
                               std::list<Match>& matches,
-                              std::map<int, Deflate::Huffman_Tree::Code>& lit_len_codes,
-                              std::map<int, Deflate::Huffman_Tree::Code>& distance_codes);
+                              Deflate::Huffman_Tree::Code* lit_len_codes,
+                              Deflate::Huffman_Tree::Code* distance_codes);
 
         static void
         write_code_lengths(Deflate::Writer& writer, std::vector<std::pair<int, int>>& code_lengths,
-                           std::map<int, Deflate::Huffman_Tree::Code>& code_length_codes);
+                           Deflate::Huffman_Tree::Code* code_length_codes);
 
-        static int enumerate_code_lengths(int count, const int* code_lengths, int max_repetition,
+        static int enumerate_code_lengths(int count, const Deflate::Huffman_Tree::Code* codes, int max_repetition,
                                           std::vector<std::pair<int, int>>& code_lengths_to_write,
-                                          std::unordered_map<int, int>& code_lengths_frequency_table);
+                                          int* code_lengths_frequency_table);
 
         static Huffman_Tree* code_lengths_to_tree(int* code_lengths, int num_symbols, int max_length);
 

@@ -5,7 +5,7 @@
 #include <list>
 
 
-Deflate::Huffman_Tree::Huffman_Tree(const std::unordered_map<int, int>& frequency_table)
+/*Deflate::Huffman_Tree::Huffman_Tree(const std::unordered_map<int, int>& frequency_table)
 {
     if (frequency_table.size() == 1)
     {
@@ -29,7 +29,7 @@ Deflate::Huffman_Tree::Huffman_Tree(const std::unordered_map<int, int>& frequenc
     }
 
     root_ = q.top().second;
-}
+}*/
 
 void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, // NOLINT(misc-no-recursion)
                                 const int path_length)
@@ -106,7 +106,7 @@ std::map<int, std::vector<int>> Deflate::Huffman_Tree::symbols_per_code_length()
     return res;
 }
 
-std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_codes(const int max_bit_length) const
+Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int num_codes, const int max_bit_length) const
 {
     std::map<int, std::vector<int>> symbols_per_bit_len = symbols_per_code_length();
     int overflow;
@@ -141,7 +141,11 @@ std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_code
         }
     } while (overflow);
 
-    std::map<int, Code> res;
+    Code* res = new Code[num_codes];
+    for (int i = 0; i < num_codes; ++i)
+    {
+        res[i] = Code(-1, -1);
+    }
 
     // Computing canonical codes and code lengths
     int code = -1;
@@ -152,7 +156,8 @@ std::map<int, Deflate::Huffman_Tree::Code> Deflate::Huffman_Tree::canonical_code
         for (const auto& s : symbols)
         {
             code = (code + 1) << (bit_length - prev_bit_len);
-            res[s] = {code, bit_length};
+            res[s].code = code;
+            res[s].length = bit_length;
             prev_bit_len = bit_length;
         }
     }
