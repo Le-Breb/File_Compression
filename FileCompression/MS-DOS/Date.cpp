@@ -7,9 +7,15 @@ namespace MS_DOS
     }
 
     Date::Date(unsigned short year, unsigned short month, unsigned short day) : bytes_
-        {static_cast<unsigned char>((day & 0b00011111) | ((month & 0b00001111) << 5)),
-         static_cast<unsigned char>(((year - 1980) << 1) | ((month & 0b00001000) >> 3))}
-    { }
+                                                                                        {static_cast<Byte>(
+                                                                                                 (day & 0b00011111) |
+                                                                                                 ((month & 0b00001111)
+                                                                                                         << 5)),
+                                                                                         static_cast<Byte>(
+                                                                                                 ((year - 1980) << 1) |
+                                                                                                 ((month & 0b00001000)
+                                                                                                         >> 3))}
+    {}
 
     unsigned short Date::get_year() const
     {
@@ -28,13 +34,13 @@ namespace MS_DOS
 
     Date Date::operator=(const Date& date) const
     {
-        return Date{ date.bytes_ };
+        return Date{date.bytes_};
     }
 
     std::ostream& operator<<(std::ostream& os, const Date& date)
     {
         os << date.get_year() << '-' << date.get_month() << '-' << date.get_day();
-        
+
         return os;
     }
 }

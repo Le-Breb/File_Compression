@@ -7,18 +7,19 @@
 
 #include <vector>
 
+typedef unsigned char Byte;
 namespace Deflate
 {
 
     class Writer
     {
-        unsigned char curr_byte = 0;
+        Byte curr_byte = 0;
         char bit_index_ = 0;
 
         void write_curr_byte();
 
     public:
-        explicit Writer(std::vector<unsigned char>* data) : data(data)
+        explicit Writer(std::vector<Byte>* data) : data(data)
         {}
 
         /**
@@ -38,7 +39,7 @@ namespace Deflate
 
         void close();
 
-        std::vector<unsigned char>* data;
+        std::vector<Byte>* data;
     };
 
 } // Deflate

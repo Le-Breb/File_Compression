@@ -8,20 +8,31 @@
 #include <fstream>
 #include <vector>
 
-namespace Deflate {
+typedef unsigned char Byte;
+namespace Deflate
+{
 
-    class Stream_Writer {
+    class Stream_Writer
+    {
         char curr_byte = 0;
         char bit_index_ = 0;
         std::ofstream out_;
+
         void write_curr_byte();
+
     public:
         Stream_Writer(const char* path, unsigned offset);
+
         void write_number(int number, int bit_length);
+
         void write_code(int code, int bit_length);
+
         void write_bit(bool bit);
+
         void write_bytes(const std::vector<bool>& bits);
-        void write_bytes(const std::vector<unsigned char>& bytes);
+
+        void write_bytes(const std::vector<Byte>& bytes);
+
         void close();
     };
 

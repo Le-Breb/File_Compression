@@ -7,6 +7,7 @@
 
 #include <vector>
 
+typedef unsigned char Byte;
 namespace Deflate
 {
     /**
@@ -16,9 +17,9 @@ namespace Deflate
     {
         unsigned byte_offset_;
         unsigned bit_index_ = 0;
-        const std::vector<unsigned char>* data_;
+        const std::vector<Byte>* data_;
     public:
-        explicit Stream_Reader(const std::vector<unsigned char>* data) : byte_offset_{0}, data_{data}
+        explicit Stream_Reader(const std::vector<Byte>* data) : byte_offset_{0}, data_{data}
         {}
 
         /**
@@ -99,9 +100,9 @@ namespace Deflate
             return n;
         }
 
-        std::vector<unsigned char> read_bytes_v(const int count)
+        std::vector<Byte> read_bytes_v(const int count)
         {
-            std::vector<unsigned char> bytes;
+            std::vector<Byte> bytes;
             bytes.reserve(count);
             for (int i = 0; i < count; i++)
                 bytes.push_back(static_cast<char>((*data_)[byte_offset_++]));

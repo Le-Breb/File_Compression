@@ -9,7 +9,7 @@ namespace MS_DOS
 
     Time Time::operator=(const Time& time) const
     {
-        return Time{ time.bytes };
+        return Time{time.bytes};
     }
 
     unsigned short Time::get_minute() const
@@ -22,9 +22,17 @@ namespace MS_DOS
     }
 
     Time::Time(unsigned short hour, unsigned short minute, unsigned short second) : bytes
-        {static_cast<unsigned char>((second / 2) | ((minute & 0b00000111) << 5)),
-         static_cast<unsigned char>(((minute & 0b00111000) >> 3) | (hour << 3))}
-    { }
+                                                                                            {static_cast<Byte>(
+                                                                                                     (second / 2) |
+                                                                                                     ((minute &
+                                                                                                       0b00000111)
+                                                                                                             << 5)),
+                                                                                             static_cast<Byte>(
+                                                                                                     ((minute &
+                                                                                                       0b00111000)
+                                                                                                             >> 3) |
+                                                                                                     (hour << 3))}
+    {}
 
     unsigned short Time::get_hour() const
     {

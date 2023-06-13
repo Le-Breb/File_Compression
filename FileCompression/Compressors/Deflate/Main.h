@@ -10,6 +10,7 @@
 #include "Writer.h"
 #include "Huffman_Tree.h"
 
+typedef unsigned char Byte;
 namespace Deflate
 {
     class Main
@@ -18,15 +19,15 @@ namespace Deflate
         static constexpr int MAX_CODE_LENGTH = 15;
         static constexpr int MAX_CODE_LENGTH_CODE_LENGTH = 7;
 
-        static std::vector<unsigned char> deflate(const unsigned char* data, int size);
+        static std::vector<Byte> deflate(const Byte* data, int size);
 
-        static std::vector<unsigned char> inflate(std::vector<unsigned char> data);
+        static std::vector<Byte> inflate(std::vector<Byte> data);
 
         static void Test();
 
     private:
         static void
-        write_compressed_data(Deflate::Writer& writer, const unsigned char* data, int offset, int size,
+        write_compressed_data(Deflate::Writer& writer, const Byte* data, int offset, int size,
                               std::list<Match>& matches,
                               Deflate::Huffman_Tree::Code* lit_len_codes,
                               Deflate::Huffman_Tree::Code* distance_codes);
@@ -54,7 +55,7 @@ namespace Deflate
         /** \brief Computes the code of the value range in which the given distance is */
         static int distance_to_code(int distance);
 
-        static int compute_dynamic_trees(const unsigned char* data, int offset, int size, std::list<Match>& matches,
+        static int compute_dynamic_trees(const Byte* data, int offset, int size, std::list<Match>& matches,
                                          Deflate::Huffman_Tree*& lit_len_tree,
                                          Deflate::Huffman_Tree*& dist_tree);
 
@@ -63,16 +64,16 @@ namespace Deflate
          * @param window The window to use for decompression of the whole file
          * @return A pair containing a boolean indicating whether the block is the last one and the decompressed data
          */
-        static std::pair<bool, std::vector<unsigned char>> decompress_block(Stream_Reader& reader, Window& window);
+        static std::pair<bool, std::vector<Byte>> decompress_block(Stream_Reader& reader, Window& window);
 
         /** \brief Reads a DEFLATE stored block */
-        static std::vector<unsigned char> get_stored_data(Stream_Reader& reader);
+        static std::vector<Byte> get_stored_data(Stream_Reader& reader);
 
         /** \brief Reads a DEFLATE block compressed with fixed Huffman coding */
-        static std::vector<unsigned char> get_fixed_huffman_data(Stream_Reader& reader, Window& window);
+        static std::vector<Byte> get_fixed_huffman_data(Stream_Reader& reader, Window& window);
 
         /** \brief Reads a DEFLATE block compressed with dynamic Huffman coding */
-        static std::vector<unsigned char> get_dynamic_huffman_data(Stream_Reader& reader, Window& window);
+        static std::vector<Byte> get_dynamic_huffman_data(Stream_Reader& reader, Window& window);
 
         enum class Block_Type : int
         {
@@ -87,7 +88,7 @@ namespace Deflate
          * @param dist_tree The Huffman tree for the distance codes
          * @param window The window to use for decompression of the whole file
          * */
-        static std::vector<unsigned char>
+        static std::vector<Byte>
         read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree* lit_len_tree, Huffman_Tree* dist_tree,
                                   Window& window);
 
@@ -99,6 +100,18 @@ namespace Deflate
 
         /** \brief Computes canonical Huffman codes given their code lengths */
         static int* codes_from_code_lengths(const int code_lengths[], int num_symbols, int max_code_length);
+
+        static const int mem_level = 8;
+        static const int hash_bits = mem_level + 7;
+        static const int hash_size = 1 << hash_bits;
+        static const int hash_mask = hash_size - 1;
+        static const int hash_shift = (hash_bits + 3 - 1) / 3;
+        static const int window_bits = 15;
+        static const int window_size = 1 << window_bits;
+        //static const int lit_bufsize = 1 << (mem_level + 6);
+
+        static inline int update_hash(int h, char c)
+        { return h = (((h) << hash_shift) ^ (c)) & hash_mask; }
 
         static inline std::unordered_map<int, int> closest_length_code = {
                 {0, 0}

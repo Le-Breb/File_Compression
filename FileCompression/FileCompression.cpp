@@ -9,6 +9,7 @@
 #include "Compressors/Deflate/Main.h"
 #include "Compressors/Deflate/Huffman_Tree.h"
 
+
 void show_file_content(const char* path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -19,7 +20,7 @@ void show_file_content(const char* path)
     char* data = new char[size];
     in.read(data, static_cast<int>(size));
     for (int i = 0; i < size; i++)
-        std::cout << (unsigned char) *(data + i);
+        std::cout << (Byte) *(data + i);
     std::cout << std::endl;
 }
 

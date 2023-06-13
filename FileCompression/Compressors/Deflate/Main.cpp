@@ -12,7 +12,7 @@
 #include <cmath>
 #include <iomanip>
 
-std::pair<bool, std::vector<unsigned char>> Deflate::Main::decompress_block(Stream_Reader& reader, Window& window)
+std::pair<bool, std::vector<Byte>> Deflate::Main::decompress_block(Stream_Reader& reader, Window& window)
 {
     const bool is_final_block = reader.read_bit();
 
@@ -31,29 +31,29 @@ std::pair<bool, std::vector<unsigned char>> Deflate::Main::decompress_block(Stre
     }
 }
 
-std::vector<unsigned char> Deflate::Main::get_stored_data(Stream_Reader& reader)
+std::vector<Byte> Deflate::Main::get_stored_data(Stream_Reader& reader)
 {
     reader.skip_end_of_byte();
     const auto len = static_cast<short>(reader.read_number(16));
     const auto nlen = static_cast<short>(reader.read_number(16));
     if (len != ~nlen)
         throw std::runtime_error("Invalid stored block length!");
-    std::vector<unsigned char> bytes = reader.read_bytes_v(len);
+    std::vector<Byte> bytes = reader.read_bytes_v(len);
 
     return bytes;
 }
 
-std::vector<unsigned char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
+std::vector<Byte> Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window)
 {
-    std::vector<unsigned char> data;
+    std::vector<Byte> data;
     int lit_len = static_huffman_tree_->read_key(reader);
     while (lit_len != 256)
     {
         // Literal
         if (lit_len <= 255)
         {
-            data.push_back(static_cast<unsigned char>(lit_len));
-            window.add(static_cast<unsigned char>(lit_len));
+            data.push_back(static_cast<Byte>(lit_len));
+            window.add(static_cast<Byte>(lit_len));
         }
         else if (lit_len <= 287) // Repetition
         {
@@ -70,7 +70,7 @@ std::vector<unsigned char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& 
                 dist += reader.read_number(extra_bits);
             for (int i = 0; i < len; ++i)
             {
-                unsigned char c = window.get(
+                Byte c = window.get(
                         dist); // Current pos increases when we add to window so the offset is always dist
                 data.push_back(c);
                 window.add(c);
@@ -85,9 +85,9 @@ std::vector<unsigned char> Deflate::Main::get_fixed_huffman_data(Stream_Reader& 
     return data;
 }
 
-std::vector<unsigned char> Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
+std::vector<Byte> Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& window)
 {
-    std::vector<unsigned char> data;
+    std::vector<Byte> data;
 
     // Read the number of different codes to read
     const int num_lit_len = reader.read_number(5) + 257;
@@ -126,7 +126,7 @@ std::vector<unsigned char> Deflate::Main::get_dynamic_huffman_data(Stream_Reader
     Huffman_Tree* dist_tree = code_lengths_to_tree(dist_code_lengths, num_dist, max_dist_code_length);
 
     // Read the data
-    std::vector<unsigned char> decompressed_data = read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
+    std::vector<Byte> decompressed_data = read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window);
 
     // Free memory
     delete lit_len_tree;
@@ -152,10 +152,10 @@ void Deflate::Main::build_static_huffman_tree()
     static_huffman_tree_ = new Huffman_Tree(keys_paths);
 }
 
-std::vector<unsigned char> Deflate::Main::deflate(const unsigned char* data, int size)
+std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
 {
     int ind = 0;
-    std::vector<unsigned char> compressed_data;
+    std::vector<Byte> compressed_data;
     Writer writer(&compressed_data);
     while (ind < size) // While there is data to compress
     {
@@ -227,16 +227,16 @@ std::vector<unsigned char> Deflate::Main::deflate(const unsigned char* data, int
     return compressed_data;
 }
 
-std::vector<unsigned char> Deflate::Main::inflate(const std::vector<unsigned char> data)
+std::vector<Byte> Deflate::Main::inflate(const std::vector<Byte> data)
 {
     // Build static huffman tree if not already built
     if (static_huffman_tree_ == nullptr)
         build_static_huffman_tree();
     try
     {
-        std::vector<std::vector<unsigned char>> inflated_blocks;
+        std::vector<std::vector<Byte>> inflated_blocks;
         Stream_Reader reader(&data);
-        std::pair<bool, std::vector<unsigned char>> inflation;
+        std::pair<bool, std::vector<Byte>> inflation;
         Window window{};
         do
         {
@@ -248,7 +248,7 @@ std::vector<unsigned char> Deflate::Main::inflate(const std::vector<unsigned cha
         for (const auto& inflated_block : inflated_blocks)
             inflated_size += static_cast<int>(inflated_block.size());
 
-        std::vector<unsigned char> inflated_data(inflated_size);
+        std::vector<Byte> inflated_data(inflated_size);
         inflated_data.reserve(inflated_size);
 
         int i = 0;
@@ -304,10 +304,10 @@ int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int 
     return codes;
 }
 
-std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree* lit_len_tree,
-                                                                    Huffman_Tree* dist_tree, Window& window)
+std::vector<Byte> Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, Huffman_Tree* lit_len_tree,
+                                                           Huffman_Tree* dist_tree, Window& window)
 {
-    std::vector<unsigned char> data;
+    std::vector<Byte> data;
     int lit_len = lit_len_tree->read_key(reader);
     while (lit_len != 256)
     {
@@ -332,7 +332,7 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
 
             for (int i = 0; i < len; ++i)
             {
-                unsigned char c = window.get(dist);
+                Byte c = window.get(dist);
                 data.push_back(c);
                 window.add(c);
             }
@@ -346,7 +346,7 @@ std::vector<unsigned char> Deflate::Main::read_dynamic_huffman_data(Stream_Reade
     return data;
 }
 
-int Deflate::Main::compute_dynamic_trees(const unsigned char* data, int offset, int size,
+int Deflate::Main::compute_dynamic_trees(const Byte* data, int offset, int size,
                                          std::list<Match>& matches, Deflate::Huffman_Tree*& lit_len_tree,
                                          Deflate::Huffman_Tree*& dist_tree)
 {
@@ -466,7 +466,7 @@ int Deflate::Main::distance_to_code(const int distance)
     return prev; // 30
 }
 
-std::string beautiful_size_display(const std::vector<unsigned char>::size_type size_in_byte)
+std::string beautiful_size_display(const std::vector<Byte>::size_type size_in_byte)
 {
     std::string size;
     if (size_in_byte < 1024)
@@ -499,14 +499,14 @@ void Deflate::Main::Test()
             throw std::runtime_error("Could not open file!");
 
         // Read the file
-        std::vector<unsigned char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::vector<Byte> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         std::cout << std::left << std::setw(15) << beautiful_size_display(data.size());
         in.close();
 
         // Compress the file block by block
         auto start = std::chrono::steady_clock::now();
         const int data_size = static_cast<int>(data.size());
-        std::vector<unsigned char> compressed = deflate(data.data(), data_size);
+        std::vector<Byte> compressed = deflate(data.data(), data_size);
         auto end = std::chrono::steady_clock::now();
 
         const int compressed_size = static_cast<int>(compressed.size());
@@ -518,7 +518,7 @@ void Deflate::Main::Test()
                   << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
 
         // Decompress the file to check if it is correct
-        std::vector<unsigned char> decompressed = inflate(compressed);
+        std::vector<Byte> decompressed = inflate(compressed);
 
         for (int i = 0; i < data_size; ++i)
         {
@@ -665,7 +665,7 @@ void Deflate::Main::write_code_lengths(Deflate::Writer& writer, std::vector<std:
     }
 }
 
-void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const unsigned char* data, const int offset,
+void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset,
                                           const int size,
                                           std::list<Match>& matches,
                                           Deflate::Huffman_Tree::Code* lit_len_codes,

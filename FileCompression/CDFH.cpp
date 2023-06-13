@@ -5,38 +5,46 @@
 
 #include"File.h"
 
-CDFH::CDFH(ZipFile::Fields::version_made_by version_made_by, ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
-    ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
-    ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
-    unsigned int crc32, unsigned int compressed_size, unsigned int uncompressed_size, unsigned short file_name_length, unsigned short extra_field_length,
-    unsigned short file_comment_length, unsigned short disk_number_start, unsigned short internal_file_attributes, unsigned int external_file_attributes,
-    unsigned int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
-    version_made_by(version_made_by), version_needed_to_extract(version_needed_to_extract),
-    general_purpose_bit_flag(general_purpose_bit_flag), compression_method(compression_method),
-    last_mod_file_time(new MS_DOS::Time(last_mod_file_time)), last_mod_file_date(new MS_DOS::Date(last_mod_file_date)), crc32(crc32),
-    compressed_size(compressed_size), uncompressed_size(uncompressed_size), file_name_length(file_name_length),
-    extra_field_length(extra_field_length), file_comment_length(file_comment_length),
-    disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
-    external_file_attributes(external_file_attributes),
-    relative_offset_of_local_header(relative_offset_of_local_header), file_name(file_name), extra_field(extra_field),
-    file_comment(file_comment), byte_size(46 + file_name_length + extra_field_length + file_comment_length)
+CDFH::CDFH(ZipFile::Fields::version_made_by version_made_by,
+           ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
+           ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
+           ZipFile::Fields::compression_method compression_method, const MS_DOS::Time& last_mod_file_time,
+           const MS_DOS::Date& last_mod_file_date,
+           unsigned int crc32, unsigned int compressed_size, unsigned int uncompressed_size,
+           unsigned short file_name_length, unsigned short extra_field_length,
+           unsigned short file_comment_length, unsigned short disk_number_start,
+           unsigned short internal_file_attributes, unsigned int external_file_attributes,
+           unsigned int relative_offset_of_local_header, char* file_name, char* extra_field, char* file_comment) :
+        version_made_by(version_made_by), version_needed_to_extract(version_needed_to_extract),
+        general_purpose_bit_flag(general_purpose_bit_flag), compression_method(compression_method),
+        last_mod_file_time(new MS_DOS::Time(last_mod_file_time)),
+        last_mod_file_date(new MS_DOS::Date(last_mod_file_date)), crc32(crc32),
+        compressed_size(compressed_size), uncompressed_size(uncompressed_size), file_name_length(file_name_length),
+        extra_field_length(extra_field_length), file_comment_length(file_comment_length),
+        disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
+        external_file_attributes(external_file_attributes),
+        relative_offset_of_local_header(relative_offset_of_local_header), file_name(file_name),
+        extra_field(extra_field),
+        file_comment(file_comment), byte_size(46 + file_name_length + extra_field_length + file_comment_length)
 {
 }
 
-CDFH::CDFH(const LFH& lfh, unsigned short file_comment_length, unsigned short disk_number_start, unsigned short internal_file_attributes,
-    unsigned int external_file_attributes, unsigned int relative_offset_of_local_header, char* file_comment) :
-    version_needed_to_extract(lfh.version_needed_to_extract), general_purpose_bit_flag(lfh.general_purpose_bit_flag),
-    compression_method(lfh.compression_method), last_mod_file_time(lfh.last_mod_file_time),
-    last_mod_file_date(lfh.last_mod_file_date), crc32(lfh.crc32), compressed_size(lfh.compressed_size),
-    uncompressed_size(lfh.uncompressed_size), file_name_length(lfh.file_name_length),
-    extra_field_length(lfh.extra_field_length), file_comment_length(file_comment_length),
-    disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
-    external_file_attributes(external_file_attributes),
-    relative_offset_of_local_header(relative_offset_of_local_header), file_name(lfh.file_name),
-    extra_field(lfh.extra_field), file_comment(file_comment),
-    byte_size(46 + file_name_length + extra_field_length + file_comment_length)
+CDFH::CDFH(const LFH& lfh, unsigned short file_comment_length, unsigned short disk_number_start,
+           unsigned short internal_file_attributes,
+           unsigned int external_file_attributes, unsigned int relative_offset_of_local_header, char* file_comment) :
+        version_needed_to_extract(lfh.version_needed_to_extract),
+        general_purpose_bit_flag(lfh.general_purpose_bit_flag),
+        compression_method(lfh.compression_method), last_mod_file_time(lfh.last_mod_file_time),
+        last_mod_file_date(lfh.last_mod_file_date), crc32(lfh.crc32), compressed_size(lfh.compressed_size),
+        uncompressed_size(lfh.uncompressed_size), file_name_length(lfh.file_name_length),
+        extra_field_length(lfh.extra_field_length), file_comment_length(file_comment_length),
+        disk_number_start(disk_number_start), internal_file_attributes(internal_file_attributes),
+        external_file_attributes(external_file_attributes),
+        relative_offset_of_local_header(relative_offset_of_local_header), file_name(lfh.file_name),
+        extra_field(lfh.extra_field), file_comment(file_comment),
+        byte_size(46 + file_name_length + extra_field_length + file_comment_length)
 {
-    
+
 }
 
 CDFH::CDFH(std::ifstream& in, const int offset)
@@ -50,10 +58,10 @@ CDFH::CDFH(std::ifstream& in, const int offset)
     in.read(reinterpret_cast<char*>(&version_needed_to_extract), 2);
     in.read(reinterpret_cast<char*>(&general_purpose_bit_flag), 2);
     in.read(reinterpret_cast<char*>(&compression_method), 2);
-    unsigned char time[2];
+    Byte time[2];
     in.read(reinterpret_cast<char*>(&time), 2);
     last_mod_file_time = new MS_DOS::Time(time);
-    unsigned char date[2];
+    Byte date[2];
     in.read(reinterpret_cast<char*>(date), 2);
     last_mod_file_date = new MS_DOS::Date(date);
     in.read(reinterpret_cast<char*>(&crc32), 4);
@@ -80,7 +88,7 @@ CDFH::CDFH(std::ifstream& in, const int offset)
 char* CDFH::to_bytes() const
 {
     char* buffer = new char[byte_size];
-    
+
     memcpy(buffer, &signature, 4);
     memcpy(buffer + 4, &version_needed_to_extract, 2);
     memcpy(buffer + 6, &general_purpose_bit_flag, 2);
@@ -100,7 +108,7 @@ char* CDFH::to_bytes() const
     memcpy(buffer + 44, file_name, file_name_length);
     memcpy(buffer + 44 + file_name_length, extra_field, extra_field_length);
     memcpy(buffer + 44 + file_name_length + extra_field_length, file_comment, file_comment_length);
-    
+
     return buffer;
 }
 
