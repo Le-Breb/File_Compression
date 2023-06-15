@@ -35,8 +35,29 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
     return reversed;
 }
 
+//ToDo: Writing bytes directly to file instead of returning them as a char* and then writing them to file
+//ToDo: Procedurally check all dates and times
+//ToDo: Add support for directories
+//Todo: Make DEFLATE create blocks with MAX_SYMBOLS_PER_BLOCK symbols
+//Todo: Change keys_path tree constructor to copy the key_paths and then be able to delete i
+//Todo: Change tree constructor with frequency table to exclude codes with frequency of 0
+// Commenting the three delete[] allow to encode one block
+//Todo: Allocate memory once and then reuse it
 int main(int argc, char* argv[])
 {
+    /*Byte* data = new Byte[13];
+    const char* a = "hello hello!";
+    for (int i = 0; i < 13; ++i)
+        data[i] = a[i];
+    std::vector<Byte> compressed_data = Deflate::Main::deflate(data, 13);*/
+    /*for (int i = 1054000; i < 2147483647; i += 1000)//1054000
+    {
+        Byte* data = new Byte[i];
+        Deflate::Main::deflate(data, i);
+        std::cout << i << std::endl;
+        delete[] data; // There is an access violation error somewhere in the code...
+    }*/
+    //return 0;
     Deflate::Main::Test();
     /*ZipFile zip_file;
     zip_file.add_file("../Data/someData.txt", "someData.txt");
@@ -51,7 +72,3 @@ int main(int argc, char* argv[])
 
 
 // Doc https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT - https://www.ietf.org/rfc/rfc1951.txt
-//ToDo: Writing bytes directly to file instead of returning them as a char* and then writing them to file
-//ToDo: Procedurally check all dates and times
-//ToDo: Add support for directories
-//Todo: Make DEFLATE create blocks with MAX_SYMBOLS_PER_BLOCK symbols

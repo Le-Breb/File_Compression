@@ -143,9 +143,7 @@ Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int nu
 
     Code* res = new Code[num_codes];
     for (int i = 0; i < num_codes; ++i)
-    {
-        res[i] = Code(-1, -1);
-    }
+        res[i] = Code(-1, 0);
 
     // Computing canonical codes and code lengths
     int code = -1;
@@ -186,7 +184,7 @@ Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
     }
     if (uniqueElement)
     {
-        root_ = new Node(-1, new Node(frequency_table[first_element_index], nullptr, nullptr), nullptr);
+        root_ = new Node(-1, new Node(first_element_index, nullptr, nullptr), nullptr);
         return;
     }
 

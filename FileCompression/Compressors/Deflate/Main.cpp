@@ -159,6 +159,7 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
     Writer writer(&compressed_data);
     while (ind < size) // While there is data to compress
     {
+        //std::cout << ind << std::endl;
         Huffman_Tree* lit_len_tree;
         Huffman_Tree* dist_tree;
         std::list<Match> matches;
@@ -170,6 +171,8 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
 
 
         int* code_lengths_frequency_table = new int[19];
+        for (int i = 0; i < 19; ++i)
+            code_lengths_frequency_table[i] = 0;
 
         // Lit/len + beginning of code length frequency table
         std::vector<std::pair<int, int>> lit_len_code_lengths_to_write;
@@ -187,12 +190,15 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
         Huffman_Tree code_lengths_tree(code_lengths_frequency_table, 19);
         Deflate::Huffman_Tree::Code* code_length_codes = code_lengths_tree.canonical_codes(19,
                                                                                            MAX_CODE_LENGTH_CODE_LENGTH);
+
+        delete[] code_lengths_frequency_table;
+
         // Determine the number of code length code lengths to write
         int num_code_length_code_length_to_write = 19;
         while (code_length_codes[code_length_codes_order[num_code_length_code_length_to_write - 1]].length == 0 &&
                num_code_length_code_length_to_write >= 0)
             --num_code_length_code_length_to_write;
-
+        //std::cout << 2 << std::endl;
         //Writing to file
         //int b = writer.data->size();
         writer.write_number(ind + uncompressed_block_size == size, 1); // BFINAL
@@ -220,6 +226,7 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
         delete dist_tree;
 
         ind += uncompressed_block_size;
+        //std::cout << 3 << std::endl;
     }
 
 
@@ -350,8 +357,21 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, int offset, int size,
                                          std::list<Match>& matches, Deflate::Huffman_Tree*& lit_len_tree,
                                          Deflate::Huffman_Tree*& dist_tree)
 {
-    //long long a = 0;
-    std::unordered_map<int, std::vector<int>> q;
+    /*
+     * Insert curr 3 bytes in hash table
+     * INSERT_STRING(s, str, match_head) \
+        (UPDATE_HASH(s, s->ins_h, s->window[(str) + (MIN_MATCH-1)]), \
+        match_head = s->prev[(str) & s->w_mask] = s->head[s->ins_h], \
+        s->head[s->ins_h] = (Pos)(str))
+     */
+
+    int head[hash_size];
+    for (int& i : head)
+        i = -1;
+    int prev[window_size];
+    for (int& i : prev)
+        i = -1;
+    long long a = 0;
     int* lit_len_frequency_table = new int[286];
     for (int i = 0; i < 286; ++i)
         lit_len_frequency_table[i] = 0;
@@ -362,68 +382,160 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, int offset, int size,
     bool matchOnPreviousByte = false;
     int ind = offset;
     int num_symbols = 1; // End of block
+    int h = data[ind];
+    update_hash(h, data[ind + 1]);
+    int prev_match = -1;
+    int prev_match_len = 0;
+    int prev_match_dist = 0;
     while (ind < size - 2 && num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        const int h = data[ind] << 16 | data[ind + 1] << 8 | data[ind + 2];
-        bool match = q.contains(h);
+        //std::cout << ind << std::endl;
+        //
+        update_hash(h, data[ind + 2]);
+        bool match = head[h] > 0 && (ind - head[h] <= 32768 && data[ind] == data[head[h]] &&
+                                     data[ind + 1] == data[head[h] + 1] && data[ind + 2] == data[head[h] + 2]);
+
+        prev[ind & window_mask] = head[h];
+        head[h] = ind;
         if (!match)
         {
+            if (matchOnPreviousByte) // Add the previous and better match
+            {
+                const int prev_length_code = length_to_code(prev_match_len);
+                const int prev_dist_code = distance_to_code(prev_match_dist);
+
+                lit_len_frequency_table[prev_length_code]++;
+                dist_frequency_table[prev_dist_code]++;
+                num_symbols++;
+                matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+
+
+                // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
+                for (int i = 0; i < prev_match_len - 2; ++i)
+                {
+                    ind++;
+                    update_hash(h, data[ind + 2]);
+                    prev[ind & window_mask] = head[h];
+                    head[h] = ind;
+                }
+            }
             num_symbols++;
             lit_len_frequency_table[data[ind]]++;
-            q[h] = {ind};
             ind++;
+            prev_match_len = 3;
         }
         else
         {
-            //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-            Match bestMatch(-1, -1, -1);
-            auto cop = q[h];
-            for (int i = static_cast<int>(cop.size()) - 1; i >= 0; --i)
+            int curr_match = prev[ind & window_mask];
+            int best_match = curr_match;
+            int best_len = prev_match_len;
+            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+            int chain_length = 1024;
+            while (curr_match != -1 && curr_match != ind && ind - curr_match <= 32768 && chain_length > 0)
             {
-                const int j = cop[i];
-                if (ind - j > 32768)
-                    break; // Matches can be at most 32768 bytes away
-                int len = 3;
-                while (ind + len < size && data[j + len] == data[ind + len] && len < 258)
+                chain_length--;
+                bool valid = true;
+                if (ind + best_len >= size)
+                    valid = false;
+                if (data[curr_match + best_len] != data[ind + best_len] ||
+                    data[curr_match + best_len - 1] != data[ind + best_len - 1] || data[ind] != data[curr_match] ||
+                    data[ind + 1] != data[curr_match + 1])
+                    valid = false;
+                if (!valid)
+                {
+                    int p = prev[curr_match & window_mask];
+                    if (p >= curr_match)
+                        break;
+                    curr_match = p;
+                    continue;
+                }
+                int len = 2;
+                while (ind + len < size && data[curr_match + len] == data[ind + len] && len < 258)
                     ++len;
-                if (len > bestMatch.length())
-                    bestMatch = Match(ind, len, ind - j);
+                if (len > best_len)
+                {
+                    best_len = len;
+                    best_match = curr_match;
+                }
+                int p = prev[curr_match & window_mask];
+                if (p >= curr_match)
+                    break;
+                curr_match = p;
             }
-            //std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            //a += std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-            // All matches are too far away
-            if (bestMatch.length() == -1)
-            {
-                q[h].emplace_back(ind++);
-                continue;
-            }
-            // Lazy matching
-            //if (matchOnPreviousByte && bestMatch->length() > matches.back()->length())
-            //{
-            //    num_symbols--;
-            //    lit_len_frequency_table[length_to_code(matches.back()->length())]--;
-            //    dist_frequency_table[distance_to_code(matches.back()->distance())]--;
-            //    delete matches.back();
-            //    matches.pop_back();
-            //}
-            matches.push_back(bestMatch);
-            int length_code = length_to_code(bestMatch.length());
-            int dist_code = distance_to_code(bestMatch.distance());
+            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            a += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+            const int best_match_dist = ind - best_match;
 
-            lit_len_frequency_table[length_code]++;
-            dist_frequency_table[dist_code]++;
-            num_symbols++;
-            q[h].emplace_back(ind);
-            // Add the hashes for the bytes in the match
-            for (int i = 1; i < bestMatch.length(); ++i)
+            if (matchOnPreviousByte) // Add the previous and better match
             {
-                ind++;
-                const int h2 = data[ind] << 16 | data[ind + 1] << 8 | data[ind + 2];
-                q[h2].emplace_back(ind);
+                if (best_len <= prev_match_len)
+                {
+                    const int prev_length_code = length_to_code(prev_match_len);
+                    const int prev_dist_code = distance_to_code(prev_match_dist);
+
+                    lit_len_frequency_table[prev_length_code]++;
+                    dist_frequency_table[prev_dist_code]++;
+                    num_symbols++;
+                    matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+
+
+                    // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
+                    for (int i = 0; i < prev_match_len - 2; ++i)
+                    {
+                        ind++;
+                        update_hash(h, data[ind + 2]);
+                        prev[ind & window_mask] = head[h];
+                        head[h] = ind;
+                    }
+                    matchOnPreviousByte = false;
+                    prev_match_len = 3;
+                    ind++;
+                    continue;
+                }
+                else
+                {
+                    lit_len_frequency_table[data[ind - 1]]++;
+                    num_symbols++;
+
+                    prev_match = best_match;
+                    prev_match_len = best_len;
+                    prev_match_dist = best_match_dist;
+                    ind++;
+                }
             }
-            ind++;
+            else
+            {
+                prev_match = best_match;
+                prev_match_len = best_len;
+                prev_match_dist = best_match_dist;
+                ind++;
+            }
+
         }
         matchOnPreviousByte = match;
+    }
+
+    if (matchOnPreviousByte) // Add the last match
+    {
+        int length_code = length_to_code(prev_match_len);
+        int dist_code = distance_to_code(prev_match_dist);
+
+        lit_len_frequency_table[length_code]++;
+        dist_frequency_table[dist_code]++;
+        num_symbols++;
+        matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+        ind += prev_match_len - 1;
+    }
+
+    if (ind == size - 2)
+    {
+        num_symbols++;
+        lit_len_frequency_table[data[ind++]]++;
+    }
+    if (ind == size - 1)
+    {
+        num_symbols++;
+        lit_len_frequency_table[data[ind++]]++;
     }
 
     if (matches.empty()) // No match -> We provide a distance of 0
@@ -436,8 +548,14 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, int offset, int size,
     lit_len_tree = new Huffman_Tree(lit_len_frequency_table, 286);
     dist_tree = new Huffman_Tree(dist_frequency_table, 30);
 
+    delete[] lit_len_frequency_table;
+    delete[] dist_frequency_table;
+
+
     //std::cout << std::endl << num_symbols << " " << matches.size() << std::endl;
-    //std::cout << "Time to compute dynamic trees: " << a / 1000000 << "ms" << std::endl;
+    // variable to store the value of a not in microsecondes but in milliseconds
+    long long b = a / 1000;
+    //std::cout << "Time to compute dynamic trees: " << b << "ms" << std::endl;
 
     return num_symbols < MAX_SYMBOLS_PER_BLOCK ? size - offset : ind - offset;
 }
@@ -490,7 +608,7 @@ void Deflate::Main::Test()
     std::ifstream in;
     for (const auto& file_name : std::filesystem::directory_iterator("../Data/calgaryCorpus"))
     {
-        /*if (file_name.path() != "../Data/calgaryCorpus\\pic"*//* && file_name.path() != "../Data/calgaryCorpus\\obj2"*//*)
+        /*if (file_name.path() != "../Data/calgaryCorpus\\pic" *//*&& file_name.path() != "../Data/calgaryCorpus\\obj2"*//*)
             continue;*/
         in.open(file_name.path(), std::ios::binary);
         std::cout << std::left << std::setw(20) << file_name.path().filename().string();
@@ -705,4 +823,26 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* d
             index++;
         }
     }
+}
+
+void Deflate::Main::Test_file(const std::string& file_name)
+{
+    std::ifstream file(file_name, std::ios::in | std::ios::binary | std::ios::ate);
+    std::streampos size = file.tellg();
+    Byte* data = new Byte[size];
+    if (file.is_open())
+    {
+        data = new Byte[size];
+        file.seekg(0, std::ios::beg);
+        file.read((char*) data, size);
+        file.close();
+    }
+    else
+        std::cout << "Unable to open file" << std::endl;
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    Deflate::Main::deflate(data, size);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()
+              << "[ms]" << std::endl;
 }

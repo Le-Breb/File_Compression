@@ -25,6 +25,8 @@ namespace Deflate
 
         static void Test();
 
+        static void Test_file(const std::string& file_name);
+
     private:
         static void
         write_compressed_data(Deflate::Writer& writer, const Byte* data, int offset, int size,
@@ -108,10 +110,11 @@ namespace Deflate
         static const int hash_shift = (hash_bits + 3 - 1) / 3;
         static const int window_bits = 15;
         static const int window_size = 1 << window_bits;
+        static const int window_mask = window_size - 1;
         //static const int lit_bufsize = 1 << (mem_level + 6);
 
-        static inline int update_hash(int h, char c)
-        { return h = (((h) << hash_shift) ^ (c)) & hash_mask; }
+        static inline void update_hash(int& h, Byte c)
+        { h = (((h) << hash_shift) ^ (c)) & hash_mask; }
 
         static inline std::unordered_map<int, int> closest_length_code = {
                 {0, 0}
