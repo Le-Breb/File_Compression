@@ -16,7 +16,6 @@ namespace Deflate
         Byte curr_byte = 0;
         char bit_index_ = 0;
 
-        void write_curr_byte();
 
     public:
         explicit Writer(std::vector<Byte>* data) : data(data)
@@ -38,6 +37,10 @@ namespace Deflate
         void write_bit(bool bit);
 
         void close();
+
+        void write_raw_byte(Byte byte);
+
+        void write_curr_byte_if_not_empty();
 
         std::vector<Byte>* data;
     };

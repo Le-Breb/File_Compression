@@ -53,14 +53,6 @@ void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, // NO
     }
 }
 
-Deflate::Huffman_Tree::Huffman_Tree(const std::map<int, Code>& tree)
-{
-    root_ = new Node(-1, nullptr, nullptr);
-
-    for (const auto& [symbol, code] : tree)
-        add(root_, symbol, code.code, code.length);
-}
-
 int Deflate::Huffman_Tree::read_key(Stream_Reader& reader) const
 {
     const Node* current = root_;
@@ -190,7 +182,10 @@ Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
 
     std::priority_queue<std::pair<int, Node*>, std::vector<std::pair<int, Node*>>, ascending> q;
     for (int i = 0; i < size; ++i)
-        q.emplace(frequency_table[i], new Node(i, nullptr, nullptr));
+    {
+        if (frequency_table[i] != 0)
+            q.emplace(frequency_table[i], new Node(i, nullptr, nullptr));
+    }
 
     while (q.size() > 1)
     {

@@ -65,11 +65,10 @@ namespace Deflate
         /** \brief Builds a Huffman tree with a symbol => num_occurrences dict */
         //explicit Huffman_Tree(const std::unordered_map<int, int>& frequency_table);
 
-        /** \brief Builds a Huffman tree with a symbol => (code, code_length) dict */
-        explicit Huffman_Tree(const std::map<int, Code>& tree);
-
+        /** \brief Builds a Huffman tree given num_codes codes. The key of each code is its index in the array */
         explicit Huffman_Tree(const Code* codes, int num_codes);
 
+        /** \brief Builds a Huffman tree given size frequencies. The key of each frequency is its index in the array */
         explicit Huffman_Tree(const int* frequency_table, int size);
 
         ~Huffman_Tree()
