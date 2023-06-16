@@ -1005,7 +1005,7 @@ Deflate::Main::deflate_uncompressed(const Byte* data, const int num_bytes, const
 
     // Write the block
     for (int i = 0; i < num_bytes; ++i)
-        writer.write_raw_byte(data[i]);
+        writer.write_raw_byte(data[offset + i]);
 }
 
 int Deflate::Main::compressed_size_with_fixed_codes(const Byte* data, const dynamic_comp_res& dynamic_comp_res)
