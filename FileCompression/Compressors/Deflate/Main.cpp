@@ -3,6 +3,7 @@
 #include "Window.h"
 #include "Match.h"
 #include "Writer.h"
+#include "Memory.h"
 #include <exception>
 #include <iostream>
 #include <vector>
@@ -168,11 +169,12 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
     int ind = 0;
     std::vector<Byte> compressed_data;
     Writer writer(&compressed_data);
+    Memory mem{};
     // While there is still data to compress
     while (ind < size)
     {
         // Compute dynamic compression data
-        const dynamic_comp_res dynamic_comp_res = compute_dynamic_comp_data(data, size, writer, ind);
+        const dynamic_comp_res dynamic_comp_res = compute_dynamic_comp_data(data, size, writer, ind, mem);
         // Compute compressed size with dynamic and fixed codes
         const int dynamic_compressed_size = compressed_size_with_dynamic_codes(data, dynamic_comp_res);
         const int fixed_compressed_size = compressed_size_with_fixed_codes(data, dynamic_comp_res);
@@ -194,6 +196,7 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
         else deflate_dynamic(dynamic_comp_res, writer, data, dynamic_compressed_size);
 
         ind += dynamic_comp_res.uncompressed_size;
+        mem.Clean();
     }
 
     writer.close(); // Close the writer to write the last byte
@@ -304,29 +307,13 @@ Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tr
     }
 }
 
-int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const int size,
-                                         std::list<Match>& matches, Deflate::Huffman_Tree*& lit_len_tree,
-                                         Deflate::Huffman_Tree*& dist_tree)
+int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const int size, std::list<Match>& matches,
+                                         Huffman_Tree*& lit_len_tree, Huffman_Tree*& dist_tree,
+                                         Memory& mem)
 {
-    // Initialize hash chain
-    int head[hash_size];
-    for (int& i : head)
-        i = -1;
-    int prev[window_size];
-    for (int& i : prev)
-        i = -1;
-
-    // Initialize frequency tables
-    int* lit_len_frequency_table = new int[286];
-    for (int i = 0; i < 286; ++i)
-        lit_len_frequency_table[i] = 0;
-    lit_len_frequency_table[256] = 1; // End of block
-    int* dist_frequency_table = new int[30];
-    for (int i = 0; i < 30; ++i)
-        dist_frequency_table[i] = 0;
-
     bool matchOnPreviousByte = false;
     int ind = offset;
+    mem.lit_len_frequency_table[256] = 1; // End of block
     int num_symbols = 1; // End of block
     int h = data[ind];
 
@@ -340,12 +327,13 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
     while (ind < size - 2 && num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
         update_hash(h, data[ind + 2]); // Compute new hash
-        bool match = head[h] > 0 && (ind - head[h] <= 32768 && data[ind] == data[head[h]] &&
-                                     data[ind + 1] == data[head[h] + 1] && data[ind + 2] == data[head[h] + 2]);
+        bool match = mem.head[h] > 0 && (ind - mem.head[h] <= 32768 && data[ind] == data[mem.head[h]] &&
+                                         data[ind + 1] == data[mem.head[h] + 1] &&
+                                         data[ind + 2] == data[mem.head[h] + 2]);
 
         // Update hash chain
-        prev[ind & window_mask] = head[h];
-        head[h] = ind;
+        mem.prev[ind & window_mask] = mem.head[h];
+        mem.head[h] = ind;
 
         if (!match)
         {
@@ -354,10 +342,10 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 const int prev_length_code = length_to_length_code(prev_match_len);
                 const int prev_dist_code = distance_to_distance_code(prev_match_dist);
 
-                lit_len_frequency_table[prev_length_code]++;
-                dist_frequency_table[prev_dist_code]++;
+                mem.lit_len_frequency_table[prev_length_code]++;
+                mem.dist_frequency_table[prev_dist_code]++;
                 num_symbols++;
-                matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+                matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, prev_length_code, prev_dist_code);
 
 
                 // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
@@ -365,20 +353,20 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 {
                     ind++;
                     update_hash(h, data[ind + 2]);
-                    prev[ind & window_mask] = head[h];
-                    head[h] = ind;
+                    mem.prev[ind & window_mask] = mem.head[h];
+                    mem.head[h] = ind;
                 }
             }
 
             // Add the current byte as a literal
             num_symbols++;
-            lit_len_frequency_table[data[ind]]++;
+            mem.lit_len_frequency_table[data[ind]]++;
             ind++;
             prev_match_len = 3;
         }
         else
         {
-            int curr_match = prev[ind & window_mask];
+            int curr_match = mem.prev[ind & window_mask];
             int best_match = curr_match;
             int best_len = prev_match_len;
             int chain_length = MAX_CHAIN_LENGTH;
@@ -400,7 +388,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 // Advance in the hash chain
                 if (!valid)
                 {
-                    int p = prev[curr_match & window_mask];
+                    int p = mem.prev[curr_match & window_mask];
                     if (p >= curr_match) // Hash collision
                         break;
                     curr_match = p;
@@ -420,7 +408,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 }
 
                 // Advance in the hash chain
-                int p = prev[curr_match & window_mask];
+                int p = mem.prev[curr_match & window_mask];
                 if (p >= curr_match) // Hash collision
                     break;
                 curr_match = p;
@@ -434,18 +422,18 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                     const int prev_length_code = length_to_length_code(prev_match_len);
                     const int prev_dist_code = distance_to_distance_code(prev_match_dist);
 
-                    lit_len_frequency_table[prev_length_code]++;
-                    dist_frequency_table[prev_dist_code]++;
+                    mem.lit_len_frequency_table[prev_length_code]++;
+                    mem.dist_frequency_table[prev_dist_code]++;
                     num_symbols++;
-                    matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+                    matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, prev_length_code, prev_dist_code);
 
                     // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
                     for (int i = 0; i < prev_match_len - 2; ++i)
                     {
                         ind++;
                         update_hash(h, data[ind + 2]);
-                        prev[ind & window_mask] = head[h];
-                        head[h] = ind;
+                        mem.prev[ind & window_mask] = mem.head[h];
+                        mem.head[h] = ind;
                     }
 
                     matchOnPreviousByte = false; // Mark current byte as a literal even though it is a match
@@ -455,7 +443,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 }
                 else // Add the previous match as a literal
                 {
-                    lit_len_frequency_table[data[ind - 1]]++;
+                    mem.lit_len_frequency_table[data[ind - 1]]++;
                     num_symbols++;
 
                     // Register current match
@@ -482,13 +470,13 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
 
     if (matchOnPreviousByte) // Add the last match
     {
-        int length_code = length_to_length_code(prev_match_len);
-        int dist_code = distance_to_distance_code(prev_match_dist);
+        const int length_code = length_to_length_code(prev_match_len);
+        const int dist_code = distance_to_distance_code(prev_match_dist);
 
-        lit_len_frequency_table[length_code]++;
-        dist_frequency_table[dist_code]++;
+        mem.lit_len_frequency_table[length_code]++;
+        mem.dist_frequency_table[dist_code]++;
         num_symbols++;
-        matches.emplace_back(ind - 1, prev_match_len, prev_match_dist);
+        matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, length_code, dist_code);
         ind += prev_match_len - 1;
     }
 
@@ -496,28 +484,24 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
     if (ind == size - 2)
     {
         num_symbols++;
-        lit_len_frequency_table[data[ind++]]++;
+        mem.lit_len_frequency_table[data[ind++]]++;
     }
     if (ind == size - 1)
     {
         num_symbols++;
-        lit_len_frequency_table[data[ind++]]++;
+        mem.lit_len_frequency_table[data[ind++]]++;
     }
 
     if (matches.empty()) // No match -> We provide distances
     {
         // Two distance codes are required to build a tree
-        dist_frequency_table[0] = 1;
-        dist_frequency_table[1] = 1;
+        mem.dist_frequency_table[0] = 1;
+        mem.dist_frequency_table[1] = 1;
     }
 
     // Build the Huffman trees
-    lit_len_tree = new Huffman_Tree(lit_len_frequency_table, 286);
-    dist_tree = new Huffman_Tree(dist_frequency_table, 30);
-
-    // Free memory
-    delete[] lit_len_frequency_table;
-    delete[] dist_frequency_table;
+    lit_len_tree = new Huffman_Tree(mem.lit_len_frequency_table, 286);
+    dist_tree = new Huffman_Tree(mem.dist_frequency_table, 30);
 
     return num_symbols < MAX_SYMBOLS_PER_BLOCK ? size - offset : ind - offset;
 }
@@ -687,7 +671,7 @@ Deflate::Main::read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::
 int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffman_Tree::Code* codes,
                                           const int max_repetition,
                                           std::vector<std::pair<int, int>>& code_lengths_to_write,
-                                          int code_lengths_frequency_table[])
+                                          Memory& mem)
 {
     int j = 0;
     while (j < count)
@@ -705,31 +689,37 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
                 if (j + k == count)
                     break; // Don't add the last 0s
                 int code = k < 11 ? 17 : 18;
-                code_lengths_frequency_table[code]++;
+                mem.code_lengths_frequency_table[code]++;
+                mem.dynamic_compression_size += code == 17 ? 3 : 7;
                 code_lengths_to_write.emplace_back(code, k);
             }
             else // Other repetitions
             {
                 // Code to repeat
-                code_lengths_frequency_table[codes[j].length]++;
+                mem.code_lengths_frequency_table[codes[j].length]++;
+                mem.dynamic_compression_size += codes[j].length;
                 code_lengths_to_write.emplace_back(codes[j].length, 1);
 
                 // Repetition
                 const int rep = k - 1;
-                code_lengths_frequency_table[16] += rep / 6;
-                for (int i = 0; i < rep / 6; ++i)
+                const int num_rep = rep / 6;
+                mem.code_lengths_frequency_table[16] += num_rep;
+                mem.dynamic_compression_size += num_rep * 2;
+                for (int i = 0; i < num_rep; ++i)
                     code_lengths_to_write.emplace_back(16, 6);
 
                 // Remaining smaller repetitions
                 int l = rep % 6;
                 if (l > 2) // Register a repetition of 3, 4 or 5
                 {
-                    code_lengths_frequency_table[16]++;
+                    mem.code_lengths_frequency_table[16]++;
+                    mem.dynamic_compression_size += 2;
                     code_lengths_to_write.emplace_back(16, l);
                 }
                 else // Register the last character which is not in any repetition
                 {
-                    code_lengths_frequency_table[codes[j].length] += l;
+                    mem.code_lengths_frequency_table[codes[j].length] += l;
+                    mem.dynamic_compression_size += l * codes[j].length;
                     for (int i = 0; i < l; ++i)
                         code_lengths_to_write.emplace_back(codes[j].length, 1);
                 }
@@ -737,7 +727,8 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
         }
         else // No repetition
         {
-            code_lengths_frequency_table[codes[j].length] += k;
+            mem.code_lengths_frequency_table[codes[j].length] += k;
+            mem.dynamic_compression_size += k * codes[j].length;
             for (int i = 0; i < k; ++i)
                 code_lengths_to_write.emplace_back(codes[j].length, 1);
         }
@@ -788,7 +779,7 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* d
         {
             // Write the match
             const int length = (*nextMatchIter).length();
-            const int length_code_value = length_to_length_code(length);
+            const int length_code_value = nextMatchIter->length_code();
             writer.write_code(lit_len_codes[length_code_value].code, lit_len_codes[length_code_value].length);
 
             // Write the extra bits
@@ -880,7 +871,8 @@ void Deflate::Main::Test_file(const std::string& file_name, const bool verify_co
 }
 
 Deflate::Main::dynamic_comp_res
-Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, const int offset)
+Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, const int offset,
+                                         Memory& mem)
 {
     int ind = offset;
 
@@ -888,33 +880,28 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
     Huffman_Tree* lit_len_tree;
     Huffman_Tree* dist_tree;
     auto* matches = new std::list<Match>();
-    int uncompressed_block_size = compute_dynamic_trees(data, ind, data_size, *matches, lit_len_tree, dist_tree);
+    int uncompressed_block_size = compute_dynamic_trees(data, ind, data_size, *matches, lit_len_tree, dist_tree,
+                                                        mem);
 
     // Compute canonical codes
     Deflate::Huffman_Tree::Code* lit_len_codes = lit_len_tree->canonical_codes(286, MAX_CODE_LENGTH);
     Deflate::Huffman_Tree::Code* distance_codes = dist_tree->canonical_codes(30, MAX_CODE_LENGTH);
 
-    // Initialize the code length frequency table
-    int* code_lengths_frequency_table = new int[19];
-    for (int i = 0; i < 19; ++i)
-        code_lengths_frequency_table[i] = 0;
 
     // Compute lit/len + beginning of code length frequency table
     auto* lit_len_code_lengths_to_write = new std::vector<std::pair<int, int>>();
-    const int provided_lit_len = enumerate_code_lengths(286, lit_len_codes, 138,
-                                                        *lit_len_code_lengths_to_write,
-                                                        code_lengths_frequency_table);
+    const int provided_lit_len = enumerate_code_lengths(286, lit_len_codes, 138, *lit_len_code_lengths_to_write, mem);
+    //Todo: Change enum signature to take mem in order to do part of the computation of dynamic_compression_size
+    // Make the whole computation of static and dynamic compression size in this function
 
     // Compute distance + end of code length frequency table
     auto* dist_code_lengths_to_write = new std::vector<std::pair<int, int>>();
     const int provided_dist_codes = enumerate_code_lengths(30, distance_codes, 30,
-                                                           *dist_code_lengths_to_write,
-                                                           code_lengths_frequency_table);
+                                                           *dist_code_lengths_to_write, mem);
 
     // Code length code lengths
-    Huffman_Tree code_lengths_tree(code_lengths_frequency_table, 19);
-    Deflate::Huffman_Tree::Code* code_length_codes = code_lengths_tree.canonical_codes(19,
-                                                                                       MAX_CODE_LENGTH_CODE_LENGTH);
+    Huffman_Tree code_lengths_tree(mem.code_lengths_frequency_table, 19);
+    Deflate::Huffman_Tree::Code* code_length_codes = code_lengths_tree.canonical_codes(19, MAX_CODE_LENGTH_CODE_LENGTH);
 
 
     // Determine the number of code length code lengths to write
@@ -922,6 +909,7 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
     while (code_length_codes[code_length_codes_order[num_code_length_code_length_to_write - 1]].length == 0 &&
            num_code_length_code_length_to_write >= 0)
         --num_code_length_code_length_to_write;
+    mem.dynamic_compression_size += 3 * num_code_length_code_length_to_write;
 
 
     // Save the computed information
@@ -932,7 +920,6 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
     // Free memory
     delete lit_len_tree;
     delete dist_tree;
-    delete[] code_lengths_frequency_table;
 
     return res;
 }
@@ -960,8 +947,8 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const dy
         {
             const int length = nextMatchIter->length();
             const int distance = nextMatchIter->distance();
-            const int length_code = length_to_length_code(length);
-            const int distance_code = distance_to_distance_code(distance);
+            const int length_code = nextMatchIter->length_code();
+            const int dist_code = nextMatchIter->dist_code();
 
             // Length
             writer.write_code(fixed_lit_len_values_codes[length_code],
@@ -969,9 +956,9 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const dy
             writer.write_number(length - lit_len_code_to_length[length_code],
                                 lengths_extra_bits[length_code]); // Length extra
             // Distance
-            writer.write_number(distance_code, 5); // Distance code
-            writer.write_number(distance - dist_code_to_dist[distance_code],
-                                distances_extra_bits[distance_code]); // Distance extra
+            writer.write_number(dist_code, 5); // Distance code
+            writer.write_number(distance - dist_code_to_dist[dist_code],
+                                distances_extra_bits[dist_code]); // Distance extra
 
             ind += length;
             nextMatchIter++;
@@ -1026,8 +1013,8 @@ int Deflate::Main::compressed_size_with_fixed_codes(const Byte* data, const dyna
         {
             const int length = nextMatchIter->length();
             const int distance = nextMatchIter->distance();
-            const int length_code = length_to_length_code(length);
-            const int distance_code = distance_to_distance_code(distance);
+            const int length_code = nextMatchIter->length_code();
+            const int distance_code = nextMatchIter->dist_code();
 
             // Length
             compressed_size += lit_len_fixed_code_length(length_code); // Length code length
@@ -1157,8 +1144,8 @@ int Deflate::Main::compressed_size_with_dynamic_codes(const Byte* data,
     {
         if (ind == nextMatchPos) // Match
         {
-            const int length_code = length_to_length_code((*nextMatchIter).length());
-            const int dist_code = distance_to_distance_code((*nextMatchIter).distance());
+            const int length_code = nextMatchIter->length_code();
+            const int dist_code = nextMatchIter->dist_code();
 
             // Add the size of the match
             compressed_size += dynamic_comp_res.lit_len_codes[length_code].length;

@@ -13,11 +13,17 @@ namespace Deflate
     class Match
     {
     private:
-        int position_;
-        int length_;
-        int distance_;
+        const int position_;
+        const int length_;
+        const int distance_;
+        const int length_code_;
+        const int dist_code_;
     public:
-        Match(int position, int length, int distance) : position_(position), length_(length), distance_(distance)
+        Match(int position, int length, int distance, int length_code, int dist_code) : position_(position),
+                                                                                        length_(length),
+                                                                                        distance_(distance),
+                                                                                        length_code_(length_code),
+                                                                                        dist_code_(dist_code)
         {}
 
         [[nodiscard]] int length() const
@@ -28,6 +34,12 @@ namespace Deflate
 
         [[nodiscard]] int position() const
         { return position_; }
+
+        [[nodiscard]] int length_code() const
+        { return length_code_; }
+
+        [[nodiscard]] int dist_code() const
+        { return dist_code_; }
 
         friend std::ostream& operator<<(std::ostream& os, const Match& match)
         {

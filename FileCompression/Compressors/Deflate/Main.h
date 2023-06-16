@@ -13,9 +13,25 @@
 typedef unsigned char Byte;
 namespace Deflate
 {
+    class Memory;
+
     class Main
     {
     public:
+        static const int MAX_CHAIN_LENGTH = 1024;
+        static const int MAX_CODE_LENGTH = 15;
+        static const int MAX_CODE_LENGTH_CODE_LENGTH = 7;
+        static const int MAX_SYMBOLS_PER_BLOCK = 16384;
+        static const int mem_level = 8;
+        static const int hash_bits = mem_level + 7;
+        static const int hash_size = 1 << hash_bits;
+        static const int hash_mask = hash_size - 1;
+        static const int hash_shift = (hash_bits + 3 - 1) / 3;
+        static const int window_bits = 15;
+        static const int window_size = 1 << window_bits;
+        static const int window_mask = window_size - 1;
+
+        //static const int lit_bufsize = 1 << (mem_level + 6);
         static std::vector<Byte> deflate(const Byte* data, int size);
 
         static std::vector<Byte> inflate(std::vector<Byte> data);
@@ -26,10 +42,7 @@ namespace Deflate
 
     private:
         /** \brief Limit of searches in a hash chains. Reduces compression efficiency but makes it faster */
-        static const int MAX_CHAIN_LENGTH = 1024;
-        static const int MAX_CODE_LENGTH = 15;
-        static const int MAX_CODE_LENGTH_CODE_LENGTH = 7;
-        static const int MAX_SYMBOLS_PER_BLOCK = 16384;
+
 
         struct dynamic_comp_res
         {
@@ -88,8 +101,9 @@ namespace Deflate
                                            const Deflate::Main::dynamic_comp_res& dynamic_comp_res);
 
         /** \brief Computes the data necessary to compress a block with dynamic huffman coding */
-        static dynamic_comp_res
-        compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, int offset);
+        static Deflate::Main::dynamic_comp_res
+        compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, const int offset,
+                                  Deflate::Memory& mem);
 
         /** \brief Deflates a block of data using the fixed Huffman codes. <br>
          * <b>This method must be called only when the output size is known and
@@ -128,9 +142,10 @@ namespace Deflate
         write_code_lengths(Deflate::Writer& writer, const std::vector<std::pair<int, int>>& code_lengths,
                            const Deflate::Huffman_Tree::Code* code_length_codes);
 
-        static int enumerate_code_lengths(int count, const Deflate::Huffman_Tree::Code* codes, int max_repetition,
-                                          std::vector<std::pair<int, int>>& code_lengths_to_write,
-                                          int code_lengths_frequency_table[]);
+        static int
+        enumerate_code_lengths(const int count, const Deflate::Huffman_Tree::Code* codes, const int max_repetition,
+                               std::vector<std::pair<int, int>>& code_lengths_to_write,
+                               Memory& mem);
 
         /** \brief Builds a tree given the code lengths of the symbols */
         static Huffman_Tree*
@@ -149,9 +164,10 @@ namespace Deflate
         /** \brief Computes the code of the value range in which the given distance is */
         static int distance_to_distance_code(int distance);
 
-        static int compute_dynamic_trees(const Byte* data, int offset, int size, std::list<Match>& matches,
-                                         Deflate::Huffman_Tree*& lit_len_tree,
-                                         Deflate::Huffman_Tree*& dist_tree);
+        static int
+        compute_dynamic_trees(const Byte* data, int offset, int size, std::list<Match>& matches,
+                              Huffman_Tree*& lit_len_tree,
+                              Huffman_Tree*& dist_tree, Memory& mem);
 
         /** \brief Decompresses a block of data
          * @param reader A DEFLATE reader for the compressed data
@@ -195,16 +211,6 @@ namespace Deflate
         /// \brief Computes codes from code lengths using the <b>algorithm described in RFC 1951 section 3.2.2</b>
         static int* codes_from_code_lengths(const int code_lengths[], int num_symbols, int max_code_length);
 
-
-        static const int mem_level = 8;
-        static const int hash_bits = mem_level + 7;
-        static const int hash_size = 1 << hash_bits;
-        static const int hash_mask = hash_size - 1;
-        static const int hash_shift = (hash_bits + 3 - 1) / 3;
-        static const int window_bits = 15;
-        static const int window_size = 1 << window_bits;
-        static const int window_mask = window_size - 1;
-        //static const int lit_bufsize = 1 << (mem_level + 6);
 
         static inline void update_hash(int& h, Byte c)
         { h = (((h) << hash_shift) ^ (c)) & hash_mask; }

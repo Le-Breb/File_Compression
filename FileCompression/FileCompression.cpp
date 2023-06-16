@@ -48,16 +48,18 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
     return reversed;
 }
 
-//ToDo: Writing bytes directly to file instead of returning them as a char* and then writing them to file
+//ToDo: Writing and reading bytes directly from an to file instead of storing them in a char array
 //ToDo: Procedurally check all dates and times
-//ToDo: Add support for directories
-//Todo: Allocate memory once and then reuse it
+//Todo: Reorder compute_dynamic_trees
+//Todo: Tester le cas où il y a plus d138 0s à la suite dans enumerate_code_lengths
+//Todo: Store single literals as a match of length and dist 0, so that we can make a symbol buffer of fixed size
 int main(int argc, char* argv[])
 {
-    //Deflate::Main::Test_file(
-    //      R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\Museum Leap\Library\ArtifactDB)", true);
-    //return 0;
-    //Deflate::Main::Test();
+    Deflate::Main::Test_file(
+            R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\MuseumLeapInstaller.exe)", true);
+
+    Deflate::Main::Test();
+    return 0;
     ZipFile zip_file;
     zip_file.add_folder("../../FileCompression", "FileCompression");
     zip_file.write("../Data/someData_.zip");

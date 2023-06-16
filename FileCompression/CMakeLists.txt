@@ -30,4 +30,4 @@ add_executable(FileCompression
         LFH.cpp
         LFH.h
         ZipFile.cpp
-        ZipFile.h Base64.cpp Base64.h Compressors/Deflate/Stream_Reader.cpp Compressors/Deflate/Stream_Reader.h Compressors/Deflate/Window.cpp Compressors/Deflate/Window.h Compressors/Deflate/Match.cpp Compressors/Deflate/Match.h Compressors/Deflate/Stream_Writer.cpp Compressors/Deflate/Stream_Writer.h Compressors/Deflate/Writer.cpp Compressors/Deflate/Writer.h)
+        ZipFile.h Base64.cpp Base64.h Compressors/Deflate/Stream_Reader.cpp Compressors/Deflate/Stream_Reader.h Compressors/Deflate/Window.cpp Compressors/Deflate/Window.h Compressors/Deflate/Match.cpp Compressors/Deflate/Match.h Compressors/Deflate/Stream_Writer.cpp Compressors/Deflate/Stream_Writer.h Compressors/Deflate/Writer.cpp Compressors/Deflate/Writer.h Compressors/Deflate/Memory.cpp Compressors/Deflate/Memory.h)

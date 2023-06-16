@@ -101,6 +101,8 @@ std::map<int, std::vector<int>> Deflate::Huffman_Tree::symbols_per_code_length()
 Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int num_codes, const int max_bit_length) const
 {
     std::map<int, std::vector<int>> symbols_per_bit_len = symbols_per_code_length();
+    
+    // Reorganize the symbols_per_bit_len so that the max bit length is max_bit_length
     int overflow;
     do
     {
@@ -109,13 +111,16 @@ Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int nu
         {
             if (bl <= max_bit_length)
                 continue;
+
             int q = max_bit_length - 1;
             while (!symbols_per_bit_len.contains(q))
                 q--;
+
             symbols_per_bit_len[q + 1].emplace_back(symbols_per_bit_len[q].back());
             symbols_per_bit_len[q].pop_back();
             if (symbols_per_bit_len[q].empty())
                 symbols_per_bit_len.erase(q);
+
             symbols_per_bit_len[q + 1].emplace_back(symbols_per_bit_len[bl].back());
             symbols_per_bit_len[bl].pop_back();
             if (symbols_per_bit_len[bl].empty())
