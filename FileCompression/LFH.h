@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include "ZipFile.h"
 #include "MS-DOS/Date.h"
 #include "MS-DOS/Time.h"
@@ -28,7 +29,8 @@ public:
     LFH(ZipFile::Fields::version_needed_to_extract version_needed_to_extract,
         ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag,
         ZipFile::Fields::compression_method compression_method,
-        const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date, unsigned crc32 = 0, unsigned int compressed_size = 0,
+        const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date, unsigned crc32 = 0,
+        unsigned int compressed_size = 0,
         unsigned int uncompressed_size = 0, unsigned short file_name_length = 0, unsigned short extra_field_length = 0,
         char* file_name = nullptr, char* extra_field = nullptr);
 
@@ -39,4 +41,6 @@ public:
     static std::pair<char*, int> build_from(const File& file);
 
     char* to_bytes() const;
+
+    static int Display_LFH(const Byte* data, int offset);
 };

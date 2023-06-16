@@ -25,11 +25,12 @@ EOCD* ZipFile::find_eocd(std::ifstream& in)
     }
 
     if (signature_search != EOCD::signature) throw invalid_file(invalid_file::Reason::NO_EOCD);
-    
+
     return new EOCD(in, offset - 4);
 }
 
-void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_central_directory, const int& central_directory_size)
+void ZipFile::register_files(std::ifstream& in, const int& offset_of_start_of_central_directory,
+                             const int& central_directory_size)
 {
     int offset = offset_of_start_of_central_directory;
     while (offset < offset_of_start_of_central_directory + central_directory_size)
@@ -45,9 +46,8 @@ void ZipFile::list_files() const
 {
     std::cout << "Files: (" << files.size() << ")" << std::endl;
     for (const auto file : files)
-    {
         std::cout << *file << std::endl;
-    }
+
 }
 
 MS_DOS::Date ZipFile::get_date_from_system()
@@ -58,8 +58,8 @@ MS_DOS::Date ZipFile::get_date_from_system()
 #pragma warning(default:4996)
 
     return {
-        static_cast<unsigned short>(ltm->tm_year + 1900), static_cast<unsigned short>(ltm->tm_mon + 1),
-        static_cast<unsigned short>(ltm->tm_mday)
+            static_cast<unsigned short>(ltm->tm_year + 1900), static_cast<unsigned short>(ltm->tm_mon + 1),
+            static_cast<unsigned short>(ltm->tm_mday)
     };
 }
 
@@ -69,10 +69,10 @@ MS_DOS::Time ZipFile::get_time_from_system()
 #pragma warning(disable:4996)
     const tm* ltm = localtime(&now);
 #pragma warning(default:4996)
-    
+
     return {
-        static_cast<unsigned short>(ltm->tm_hour), static_cast<unsigned short>(ltm->tm_min),
-                        static_cast<unsigned short>(ltm->tm_sec)
+            static_cast<unsigned short>(ltm->tm_hour), static_cast<unsigned short>(ltm->tm_min),
+            static_cast<unsigned short>(ltm->tm_sec)
     };
 }
 
@@ -97,12 +97,13 @@ void ZipFile::write_empty_zip_file(const char* filename)
     delete eocd_bytes;
 }
 
-void ZipFile::add_file(const char *path_on_disk, const char *path_in_zip)
+void ZipFile::add_file(const std::string& path_on_disk, const std::string& path_in_zip,
+                       const Fields::compression_method compression_method)
 {
     const std::filesystem::path path = path_on_disk;
-    
+
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    GetFileAttributesExA(path_on_disk, GetFileExInfoStandard, &file_info);
+    GetFileAttributesExA(path_on_disk.c_str(), GetFileExInfoStandard, &file_info);
     SYSTEMTIME ft;
     FileTimeToSystemTime(&file_info.ftLastWriteTime, &ft);
     const MS_DOS::Date last_modification_date(ft);
@@ -110,11 +111,11 @@ void ZipFile::add_file(const char *path_on_disk, const char *path_in_zip)
 
     const bool is_apparently_text = path.extension() == ".txt";
     const unsigned int external_attributes = file_info.dwFileAttributes;
-    
-    File* file = new File(path_on_disk, Fields::compression_method::Deflated, last_modification_time,
+
+    File* file = new File(path_on_disk, compression_method, last_modification_time,
                           last_modification_date,
                           is_apparently_text, external_attributes, path_in_zip);
-    
+
     files.push_back(file);
 }
 
@@ -123,7 +124,7 @@ void ZipFile::write(const char* filename) const
     std::ofstream outfile;
     outfile.open(filename, std::ios::binary | std::ios::out);
     if (!outfile.is_open())
-        throw new std::runtime_error("Could not open file for writing");
+        throw std::runtime_error("Could not open file for writing");
     std::map<File*, int> file_offsets;
     int offset = 0;
 
@@ -157,11 +158,13 @@ void ZipFile::write(const char* filename) const
     outfile.write(eocd.to_bytes(), eocd.byte_size);
 }
 
-ZipFile::ZipFile() : creation_date_(new MS_DOS::Date(get_date_from_system())), creation_time_(new MS_DOS::Time(get_time_from_system()))
+ZipFile::ZipFile() : creation_date_(new MS_DOS::Date(get_date_from_system())),
+                     creation_time_(new MS_DOS::Time(get_time_from_system()))
 {
 }
 
-ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_date_from_system())), creation_time_(new MS_DOS::Time(get_time_from_system()))
+ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_date_from_system())),
+                                         creation_time_(new MS_DOS::Time(get_time_from_system()))
 {
     std::ifstream in(filename, std::ios::binary | std::ios::in);
     if (!in.is_open()) throw std::runtime_error("File not found");
@@ -169,41 +172,58 @@ ZipFile::ZipFile(const char* filename) : creation_date_(new MS_DOS::Date(get_dat
     EOCD* eocd = find_eocd(in);
     //std::cout << *eocd << std::endl;
     register_files(in, eocd->offset_of_start_of_central_directory, eocd->size_of_the_central_directory);
-    list_files();
-    
+
     delete eocd;
 }
 
+namespace fs = std::filesystem;
+
+void ZipFile::add_folder(const char* path_on_disk, const char* path_in_zip,
+                         ZipFile::Fields::compression_method compression_method)
+{
+    for (const auto& dir_entry : fs::recursive_directory_iterator(path_on_disk))
+    {
+        if (dir_entry.is_regular_file())
+        {
+            const std::string file_path_on_disk = dir_entry.path().string();
+            const std::string file_path_in_zip =
+                    path_in_zip +
+                    file_path_on_disk.substr(file_path_on_disk.find(path_on_disk) + strlen(path_on_disk));
+            add_file(file_path_on_disk, file_path_in_zip, compression_method);
+        }
+    }
+}
+
 const std::map<ZipFile::Fields::general_purpose_bit_flag, std::string> ZipFile::Fields::general_purpose_bit_flag_to_string = {
-            { general_purpose_bit_flag::Encrypted, "encrypted" },
-            { general_purpose_bit_flag::Compression_option_1, "compression_option1" },
-            { general_purpose_bit_flag::Compression_option_2, "compression_option2" },
-            { general_purpose_bit_flag::Data_descriptor, "data_descriptor" },
-            { general_purpose_bit_flag::Enhanced_deflation, "enhanced_deflating" },
-            { general_purpose_bit_flag::Compressed_patched_data, "compressed_patched_data" },
-            { general_purpose_bit_flag::Strong_encryption, "strong_encryption" },
-            /*{ general_purpose_bit_flag::Unused_8, "unused_8" },
-            { general_purpose_bit_flag::Unused_9, "unused_9" },
-            { general_purpose_bit_flag::Unused_10, "unused_10" },
-            { general_purpose_bit_flag::Unused_11, "unused_11" },*/
-            { general_purpose_bit_flag::UTF_8, "UTF-8" },
-            /*{ general_purpose_bit_flag::Language_encoding, "language_encoding" },
-            { general_purpose_bit_flag::Reserved_14, "reserved_14" },*/
-            { general_purpose_bit_flag::Mask_header_values, "mask_header_values" }
-            /*{ general_purpose_bit_flag::Reserved_16, "reserved_16" },
-            { general_purpose_bit_flag::Reserved_17, "reserved_17" },
-            { general_purpose_bit_flag::Reserved_18, "reserved_18" },
-            { general_purpose_bit_flag::Reserved_19, "reserved_19" },
-            { general_purpose_bit_flag::Reserved_20, "reserved_20" },
-            { general_purpose_bit_flag::Reserved_21, "reserved_21" },
-            { general_purpose_bit_flag::Reserved_22, "reserved_22" },
-            { general_purpose_bit_flag::Reserved_23, "reserved_23" },
-            { general_purpose_bit_flag::Reserved_24, "reserved_24" },
-            { general_purpose_bit_flag::Reserved_25, "reserved_25" },
-            { general_purpose_bit_flag::Reserved_26, "reserved_26" },
-            { general_purpose_bit_flag::Reserved_27, "reserved_27" },
-            { general_purpose_bit_flag::Reserved_28, "reserved_28" },
-            { general_purpose_bit_flag::Reserved_29, "reserved_29" },
-            { general_purpose_bit_flag::Reserved_30, "reserved_30" },
-            { general_purpose_bit_flag::Reserved_31, "reserved_31" },*/
-        };
+        {general_purpose_bit_flag::Encrypted,               "encrypted"},
+        {general_purpose_bit_flag::Compression_option_1,    "compression_option1"},
+        {general_purpose_bit_flag::Compression_option_2,    "compression_option2"},
+        {general_purpose_bit_flag::Data_descriptor,         "data_descriptor"},
+        {general_purpose_bit_flag::Enhanced_deflation,      "enhanced_deflating"},
+        {general_purpose_bit_flag::Compressed_patched_data, "compressed_patched_data"},
+        {general_purpose_bit_flag::Strong_encryption,       "strong_encryption"},
+        /*{ general_purpose_bit_flag::Unused_8, "unused_8" },
+        { general_purpose_bit_flag::Unused_9, "unused_9" },
+        { general_purpose_bit_flag::Unused_10, "unused_10" },
+        { general_purpose_bit_flag::Unused_11, "unused_11" },*/
+        {general_purpose_bit_flag::UTF_8,                   "UTF-8"},
+        /*{ general_purpose_bit_flag::Language_encoding, "language_encoding" },
+        { general_purpose_bit_flag::Reserved_14, "reserved_14" },*/
+        {general_purpose_bit_flag::Mask_header_values,      "mask_header_values"}
+        /*{ general_purpose_bit_flag::Reserved_16, "reserved_16" },
+        { general_purpose_bit_flag::Reserved_17, "reserved_17" },
+        { general_purpose_bit_flag::Reserved_18, "reserved_18" },
+        { general_purpose_bit_flag::Reserved_19, "reserved_19" },
+        { general_purpose_bit_flag::Reserved_20, "reserved_20" },
+        { general_purpose_bit_flag::Reserved_21, "reserved_21" },
+        { general_purpose_bit_flag::Reserved_22, "reserved_22" },
+        { general_purpose_bit_flag::Reserved_23, "reserved_23" },
+        { general_purpose_bit_flag::Reserved_24, "reserved_24" },
+        { general_purpose_bit_flag::Reserved_25, "reserved_25" },
+        { general_purpose_bit_flag::Reserved_26, "reserved_26" },
+        { general_purpose_bit_flag::Reserved_27, "reserved_27" },
+        { general_purpose_bit_flag::Reserved_28, "reserved_28" },
+        { general_purpose_bit_flag::Reserved_29, "reserved_29" },
+        { general_purpose_bit_flag::Reserved_30, "reserved_30" },
+        { general_purpose_bit_flag::Reserved_31, "reserved_31" },*/
+};

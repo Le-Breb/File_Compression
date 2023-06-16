@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+typedef unsigned char Byte;
+
 class CRC32
 {
 private:
@@ -7,6 +9,7 @@ private:
     const unsigned reversed_polynomial_ = 0xEDB88320;
 public:
     CRC32();
+
     unsigned compute(const char* bytes, int length) const;
 };
 

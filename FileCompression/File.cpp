@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "CRC32.h"
+#include "Compressors/Deflate/Main.h"
 
 File::~File()
 {
@@ -38,9 +39,9 @@ File::File(std::ifstream& in, const CDFH& cdfh)
     in.read(compressed_data, compressed_size);
 }
 
-File::File(const char *path_on_disk, ZipFile::Fields::compression_method compression_method,
-           const MS_DOS::Time &last_mod_file_time, const MS_DOS::Date &last_mod_file_date,
-           const bool is_apparently_text, const unsigned int external_attributes, const char *path_in_zip)
+File::File(const std::string& path_on_disk, ZipFile::Fields::compression_method compression_method,
+           const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
+           const bool is_apparently_text, const unsigned int external_attributes, const std::string& path_in_zip)
 {
     std::ifstream in(path_on_disk);
     if (!in.is_open()) throw std::runtime_error("File not found");
@@ -62,18 +63,20 @@ File::File(const char *path_on_disk, ZipFile::Fields::compression_method compres
     uncompressed_size = file_size;
     const CRC32 crc32;
     this->crc32 = crc32.compute(data, uncompressed_size);
-    file_name_length = strlen(path_in_zip);
+    file_name_length = path_in_zip.length();
     extra_field_length = 0;
     file_comment_length = 0;
     disk_number_start = 0;
     internal_file_attributes = is_apparently_text;
     external_file_attributes = external_attributes;
-    file_name = path_in_zip;
+    char* f_name = new char[file_name_length];
+    memcpy(f_name, path_in_zip.c_str(), file_name_length);
+    file_name = f_name;
     extra_field = nullptr;
     file_comment = nullptr;
 
     compressed_data = compressed_data_and_size.first;
-    
+
     delete[] data;
 }
 
@@ -86,42 +89,65 @@ std::pair<char*, int> File::get_compressed_data(const char* data, int file_size)
             memcpy(compressed_data, data, file_size);
             compressed_size = file_size;
             return {compressed_data, file_size};
-        case ZipFile::Fields::compression_method::Shrunk: break;
-        case ZipFile::Fields::compression_method::Reduced_1: break;
-        case ZipFile::Fields::compression_method::Reduced_2: break;
-        case ZipFile::Fields::compression_method::Reduced_3: break;
-        case ZipFile::Fields::compression_method::Reduced_4: break;
-        case ZipFile::Fields::compression_method::Imploded: break;
-        case ZipFile::Fields::compression_method::Reserved_1: break;
+        case ZipFile::Fields::compression_method::Shrunk:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_1:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_2:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_3:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_4:
+            break;
+        case ZipFile::Fields::compression_method::Imploded:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_1:
+            break;
         case ZipFile::Fields::compression_method::Deflated:
-            {
-                compressed_data = new char [] {43,46,-122,1,0}; //-122 = 134
-                compressed_size = 5;
-                return {compressed_data, compressed_size};/*
-                std::tuple<char*, int> r = Main::deflate(data, file_size);
-                compressed_size = std::get<1>(r);
-                compressed_data = std::get<0>(r);
-                return {compressed_data, std::get<1>(r)};*/
-            }
-        case ZipFile::Fields::compression_method::Enhanced_Deflated: break;
-        case ZipFile::Fields::compression_method::PKWare_DCL_Implode: break;
-        case ZipFile::Fields::compression_method::Reserved_2: break;
-        case ZipFile::Fields::compression_method::BZIP2: break;
-        case ZipFile::Fields::compression_method::Reserved_3: break;
-        case ZipFile::Fields::compression_method::LZMA: break;
-        case ZipFile::Fields::compression_method::Reserved_4: break;
-        case ZipFile::Fields::compression_method::Reserved_5: break;
-        case ZipFile::Fields::compression_method::Reserved_6: break;
-        case ZipFile::Fields::compression_method::IBM_TERSE: break;
-        case ZipFile::Fields::compression_method::IBM_LZ77_z: break;
-        case ZipFile::Fields::compression_method::MP3: break;
-        case ZipFile::Fields::compression_method::XZ: break;
-        case ZipFile::Fields::compression_method::JPEG: break;
-        case ZipFile::Fields::compression_method::WavPack: break;
-        case ZipFile::Fields::compression_method::PPMD: break;
-        case ZipFile::Fields::compression_method::AE_x: break;
-        case ZipFile::Fields::compression_method::Unknown: break;
-        default: throw std::runtime_error("Unknown compression method");
+        {
+            std::vector<Byte> comp = Deflate::Main::deflate((Byte*) data, file_size);
+            char* comp_data = new char[comp.size()];
+            memcpy(comp_data, comp.data(), comp.size());
+            return {comp_data, comp.size()};
+        }
+        case ZipFile::Fields::compression_method::Enhanced_Deflated:
+            break;
+        case ZipFile::Fields::compression_method::PKWare_DCL_Implode:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_2:
+            break;
+        case ZipFile::Fields::compression_method::BZIP2:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_3:
+            break;
+        case ZipFile::Fields::compression_method::LZMA:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_4:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_5:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_6:
+            break;
+        case ZipFile::Fields::compression_method::IBM_TERSE:
+            break;
+        case ZipFile::Fields::compression_method::IBM_LZ77_z:
+            break;
+        case ZipFile::Fields::compression_method::MP3:
+            break;
+        case ZipFile::Fields::compression_method::XZ:
+            break;
+        case ZipFile::Fields::compression_method::JPEG:
+            break;
+        case ZipFile::Fields::compression_method::WavPack:
+            break;
+        case ZipFile::Fields::compression_method::PPMD:
+            break;
+        case ZipFile::Fields::compression_method::AE_x:
+            break;
+        case ZipFile::Fields::compression_method::Unknown:
+            break;
+        default:
+            throw std::runtime_error("Unknown compression method");
     }
 
     throw std::runtime_error("Not implemented");
@@ -129,35 +155,63 @@ std::pair<char*, int> File::get_compressed_data(const char* data, int file_size)
 
 std::pair<char*, int> File::get_uncompressed_data(char* data, int compressed_file_size) const
 {
-    switch (compression_method) {
-        case ZipFile::Fields::compression_method::Stored: break;
-        case ZipFile::Fields::compression_method::Shrunk: break;
-        case ZipFile::Fields::compression_method::Reduced_1: break;
-        case ZipFile::Fields::compression_method::Reduced_2: break;
-        case ZipFile::Fields::compression_method::Reduced_3: break;
-        case ZipFile::Fields::compression_method::Reduced_4: break;
-        case ZipFile::Fields::compression_method::Imploded: break;
-        case ZipFile::Fields::compression_method::Reserved_1: break;
-        case ZipFile::Fields::compression_method::Deflated: break;
-        case ZipFile::Fields::compression_method::Enhanced_Deflated: break;
-        case ZipFile::Fields::compression_method::PKWare_DCL_Implode: break;
-        case ZipFile::Fields::compression_method::Reserved_2: break;
-        case ZipFile::Fields::compression_method::BZIP2: break;
-        case ZipFile::Fields::compression_method::Reserved_3: break;
-        case ZipFile::Fields::compression_method::LZMA: break;
-        case ZipFile::Fields::compression_method::Reserved_4: break;
-        case ZipFile::Fields::compression_method::Reserved_5: break;
-        case ZipFile::Fields::compression_method::Reserved_6: break;
-        case ZipFile::Fields::compression_method::IBM_TERSE: break;
-        case ZipFile::Fields::compression_method::IBM_LZ77_z: break;
-        case ZipFile::Fields::compression_method::MP3: break;
-        case ZipFile::Fields::compression_method::XZ: break;
-        case ZipFile::Fields::compression_method::JPEG: break;
-        case ZipFile::Fields::compression_method::WavPack: break;
-        case ZipFile::Fields::compression_method::PPMD: break;
-        case ZipFile::Fields::compression_method::AE_x: break;
-        case ZipFile::Fields::compression_method::Unknown: break;
-        default: ;
+    switch (compression_method)
+    {
+        case ZipFile::Fields::compression_method::Stored:
+            break;
+        case ZipFile::Fields::compression_method::Shrunk:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_1:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_2:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_3:
+            break;
+        case ZipFile::Fields::compression_method::Reduced_4:
+            break;
+        case ZipFile::Fields::compression_method::Imploded:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_1:
+            break;
+        case ZipFile::Fields::compression_method::Deflated:
+            break;
+        case ZipFile::Fields::compression_method::Enhanced_Deflated:
+            break;
+        case ZipFile::Fields::compression_method::PKWare_DCL_Implode:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_2:
+            break;
+        case ZipFile::Fields::compression_method::BZIP2:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_3:
+            break;
+        case ZipFile::Fields::compression_method::LZMA:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_4:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_5:
+            break;
+        case ZipFile::Fields::compression_method::Reserved_6:
+            break;
+        case ZipFile::Fields::compression_method::IBM_TERSE:
+            break;
+        case ZipFile::Fields::compression_method::IBM_LZ77_z:
+            break;
+        case ZipFile::Fields::compression_method::MP3:
+            break;
+        case ZipFile::Fields::compression_method::XZ:
+            break;
+        case ZipFile::Fields::compression_method::JPEG:
+            break;
+        case ZipFile::Fields::compression_method::WavPack:
+            break;
+        case ZipFile::Fields::compression_method::PPMD:
+            break;
+        case ZipFile::Fields::compression_method::AE_x:
+            break;
+        case ZipFile::Fields::compression_method::Unknown:
+            break;
+        default:;
     }
 
     throw new std::runtime_error("Not implemented");

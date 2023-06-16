@@ -7,7 +7,7 @@
 
 #include "ZipFile.h"
 #include "Compressors/Deflate/Main.h"
-#include "Compressors/Deflate/Huffman_Tree.h"
+#include "LFH.h"
 
 
 void show_file_content(const char* path)
@@ -21,6 +21,19 @@ void show_file_content(const char* path)
     in.read(data, static_cast<int>(size));
     for (int i = 0; i < size; i++)
         std::cout << (Byte) *(data + i);
+    std::cout << std::endl;
+}
+
+void show_file_content2(const char* path)
+{
+    std::ifstream in(path, std::ios::in | std::ios::binary | std::ios::ate);
+    if (!in.is_open()) throw std::runtime_error("unable to open file");
+    const size_t size = in.tellg();
+    in.seekg(0);
+    char* data = new char[size];
+    in.read(data, static_cast<int>(size));
+    int i = 0;
+    i += LFH::Display_LFH((Byte*) data, i);
     std::cout << std::endl;
 }
 
@@ -41,16 +54,19 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
 //Todo: Allocate memory once and then reuse it
 int main(int argc, char* argv[])
 {
-    Deflate::Main::Test_file(
-            R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\MuseumLeapInstaller.exe)", true);
+    //Deflate::Main::Test_file(
+    //      R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\Museum Leap\Library\ArtifactDB)", true);
     //return 0;
-    Deflate::Main::Test();
-    /*ZipFile zip_file;
-    zip_file.add_file("../Data/someData.txt", "someData.txt");
+    //Deflate::Main::Test();
+    ZipFile zip_file;
+    zip_file.add_folder("../../FileCompression", "FileCompression");
     zip_file.write("../Data/someData_.zip");
-    show_file_content("../Data/someData_.zip");
-    show_file_content("../Data/someData.zip");
-    ZipFile zip_file2("../Data/someData.zip");*/
+    //show_file_content("../Data/someData_.zip");
+    std::cout << std::flush;
+    //show_file_content("../Data/someData.zip");
+    zip_file.list_files();
+    ZipFile zip_file2("../Data/someData.zip");
+    zip_file2.list_files();
 
     return 0;
 }

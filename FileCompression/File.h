@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include <tuple>
 
 #include "CDFH.h"
@@ -7,7 +8,7 @@ class File
 {
 public:
     char* compressed_data;
-    
+
     ZipFile::Fields::version_needed_to_extract version_needed_to_extract;
     ZipFile::Fields::general_purpose_bit_flag general_purpose_bit_flag;
     ZipFile::Fields::compression_method compression_method;
@@ -27,12 +28,18 @@ public:
     const char* file_comment;
 
     ~File();
+
     explicit File(std::ifstream& in, const CDFH& cdfh);
-    explicit File(const char *path_on_disk, ZipFile::Fields::compression_method compression_method,
-                  const MS_DOS::Time &last_mod_file_time, const MS_DOS::Date &last_mod_file_date,
-                  const bool is_apparently_text, const unsigned int external_attributes, const char *path_in_zip);
+
+    explicit File(const std::string& path_on_disk, ZipFile::Fields::compression_method compression_method,
+                  const MS_DOS::Time& last_mod_file_time, const MS_DOS::Date& last_mod_file_date,
+                  const bool is_apparently_text, const unsigned int external_attributes,
+                  const std::string& path_in_zip);
+
     std::pair<char*, int> get_compressed_data(const char* data, int file_size);
+
     std::pair<char*, int> get_uncompressed_data(char* data, int compressed_file_size) const;
+
     friend std::ostream& operator<<(std::ostream& os, const File& file);
     //char* to_bytes(const CDFH& cdfh) const;
 };
