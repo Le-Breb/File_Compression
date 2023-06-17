@@ -21,7 +21,7 @@ namespace Deflate
         static const int MAX_CHAIN_LENGTH = 1024;
         static const int MAX_CODE_LENGTH = 15;
         static const int MAX_CODE_LENGTH_CODE_LENGTH = 7;
-        static const int MAX_SYMBOLS_PER_BLOCK = 16384;
+        static const int MAX_SYMBOLS_PER_BLOCK = 16383; // The 16384th symbol is the end of block symbol
         static const int mem_level = 8;
         static const int hash_bits = mem_level + 7;
         static const int hash_size = 1 << hash_bits;
@@ -44,17 +44,17 @@ namespace Deflate
         /** \brief Limit of searches in a hash chains. Reduces compression efficiency but makes it faster */
 
 
-        struct dynamic_comp_res
+        struct CompressionInfo
         {
-            dynamic_comp_res(int offset, int uncompressedSize, int providedLitLen,
-                             int providedDistCodes, int numCodeLengthCodeLengthToWrite,
-                             const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
-                             const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
-                             const Huffman_Tree::Code* codeLengthCodes, const Deflate::Huffman_Tree::Code* litLenCodes,
-                             const Deflate::Huffman_Tree::Code* distCodes, const std::list<Match>* matches,
-                             bool is_last_block);
+            CompressionInfo(int offset, int uncompressedSize, int providedLitLen, int providedDistCodes,
+                            int numCodeLengthCodeLengthToWrite,
+                            const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
+                            const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
+                            const Huffman_Tree::Code* codeLengthCodes, const Deflate::Huffman_Tree::Code* litLenCodes,
+                            const Deflate::Huffman_Tree::Code* distCodes, bool is_last_block, int dynamic_comp_size,
+                            int fixed_comp_size);
 
-            virtual ~dynamic_comp_res();
+            virtual ~CompressionInfo();
 
             const int offset;
             const int uncompressed_size;
@@ -66,55 +66,44 @@ namespace Deflate
             const Deflate::Huffman_Tree::Code* code_length_codes;
             const Deflate::Huffman_Tree::Code* lit_len_codes;
             const Deflate::Huffman_Tree::Code* dist_codes;
-            const std::list<Match>* matches;
+            //const std::list<Match>* matches;
             const bool is_last_block;
+            const int dynamic_compression_size;
+            const int fixed_compression_size;
         };
 
         /** \brief Deflates a block of data using the dynamic Huffman codes. <br>
          * <b>This method must be called only when the output size is known and
          * inferior to the fixed output size.</b>
-         * @param dynamic_comp_res The dynamic compression result
+         * @param compression_info The dynamic compression result
          * @param writer The writer used to write the compressed data
          * @param data Input data
          * @param offset Data offset.
          * @return compressed_size The size of the compressed data
          */
-        static void deflate_dynamic(const dynamic_comp_res& dynamic_comp_res, Deflate::Writer& writer, const Byte* data,
-                                    int compressed_size);
+        static void deflate_dynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
+                                    const Memory& mem);
 
         /** \brief Computes the number of bits required to encode a given
          * literal/length code with fixed huffman codes. */
         static int lit_len_fixed_code_length(int lit_len);
 
-        /** Computes the number of bytes required to compress a block with fixed huffman codes.
-         * @param data The data to compress
-         * @param dynamic_comp_res The dynamic compression result
-         * */
-        static int compressed_size_with_fixed_codes(const Byte* data, const dynamic_comp_res& dynamic_comp_res);
-
-        /** \brief Computes the number of bytes required to compress a block with dynamic huffman codes.
-         * @param data The data to compress
-         * @param dynamic_comp_res The dynamic compression result
-         * */
-        static int
-        compressed_size_with_dynamic_codes(const Byte* data,
-                                           const Deflate::Main::dynamic_comp_res& dynamic_comp_res);
-
-        /** \brief Computes the data necessary to compress a block with dynamic huffman coding */
-        static Deflate::Main::dynamic_comp_res
-        compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, const int offset,
-                                  Deflate::Memory& mem);
+        /** \brief Computes the data necessary to compress a block with dynamic huffman coding, as well as the size of the
+         * block compressed with dynamic and fixed codes*/
+        static Deflate::Main::CompressionInfo
+        process_block(const Byte* data, int data_size, Writer& writer, const int offset,
+                      Memory& mem);
 
         /** \brief Deflates a block of data using the fixed Huffman codes. <br>
          * <b>This method must be called only when the output size is known and
          * inferior to the dynamic output size.</b>
          * @param data The data to deflate
          * @param writer The writer used to write the compressed data
-         * @param dynamic_comp_res The dynamic compression result
+         * @param compression_info The dynamic compression result
          */
         static void
-        deflate_fixed(const Byte* data, Deflate::Writer& writer, const dynamic_comp_res& dynamic_comp_res,
-                      int compressed_size);
+        deflate_fixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
+                      const Memory& mem);
 
 
         /** \brief Deflates a block of data using the uncompressed block format. <br>
@@ -127,15 +116,14 @@ namespace Deflate
          * @param writer The writer used to write the compressed data
          */
         static void
-        deflate_uncompressed(const Byte* data, int num_bytes, int offset, bool is_last_block,
-                             Writer& writer);
+        deflate_uncompressed(const Byte* data, const int offset, Writer& writer,
+                             const CompressionInfo& compression_info);
 
         /** \brief Writes the data of a dynamic block */
         static void
-        write_compressed_data(Deflate::Writer& writer, const Byte* data, int offset, int size,
-                              const std::list<Match>& matches,
+        write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset, const int size,
                               const Deflate::Huffman_Tree::Code* lit_len_codes,
-                              const Deflate::Huffman_Tree::Code* distance_codes);
+                              const Deflate::Huffman_Tree::Code* distance_codes, const Memory& mem);
 
         /** \brief Writes the code lengths of a dynamic block */
         static void
@@ -165,8 +153,7 @@ namespace Deflate
         static int distance_to_distance_code(int distance);
 
         static int
-        compute_dynamic_trees(const Byte* data, int offset, int size, std::list<Match>& matches,
-                              Huffman_Tree*& lit_len_tree,
+        compute_dynamic_trees(const Byte* data, const int offset, const int size, Huffman_Tree*& lit_len_tree,
                               Huffman_Tree*& dist_tree, Memory& mem);
 
         /** \brief Decompresses a block of data

@@ -25,9 +25,6 @@ namespace Deflate
         Match* symbols[Main::MAX_SYMBOLS_PER_BLOCK];
         int num_symbols = 0;
 
-        int dynamic_compression_size = 1 + 2 + 10 + 4; // BFINAL BTYPE HLIT HDIST HCLEN
-        int static_compression_size = 0;
-
         /** \brief Resets the memory to its initial state */
         void Clean();
     };

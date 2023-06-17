@@ -7,23 +7,31 @@
 
 #include <ostream>
 
+typedef unsigned char Byte;
 namespace Deflate
 {
 
     class Match
     {
     private:
-        const int position_;
+        const int val_;
         const int length_;
         const int distance_;
         const int length_code_;
         const int dist_code_;
     public:
-        Match(int position, int length, int distance, int length_code, int dist_code) : position_(position),
-                                                                                        length_(length),
-                                                                                        distance_(distance),
-                                                                                        length_code_(length_code),
-                                                                                        dist_code_(dist_code)
+        explicit Match(Byte val) : val_(val),
+                                   length_(0),
+                                   distance_(0),
+                                   length_code_(0),
+                                   dist_code_(0)
+        {}
+
+        Match(int val, int length, int distance, int length_code, int dist_code) : val_(val),
+                                                                                   length_(length),
+                                                                                   distance_(distance),
+                                                                                   length_code_(length_code),
+                                                                                   dist_code_(dist_code)
         {}
 
         [[nodiscard]] int length() const
@@ -32,8 +40,8 @@ namespace Deflate
         [[nodiscard]] int distance() const
         { return distance_; }
 
-        [[nodiscard]] int position() const
-        { return position_; }
+        [[nodiscard]] int val() const
+        { return val_; }
 
         [[nodiscard]] int length_code() const
         { return length_code_; }

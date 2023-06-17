@@ -19,11 +19,8 @@ namespace Deflate
         for (auto& c : code_lengths_frequency_table)
             c = 0;
 
-        dynamic_compression_size = 0;
-        static_compression_size = 0;
-
-        for (int i = 0; i < num_symbols; ++i)
-            delete symbols[i];
+        //for (int i = 0; i < num_symbols; ++i)
+        //    delete symbols[i];
         num_symbols = 0;
     }
 

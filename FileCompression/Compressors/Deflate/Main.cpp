@@ -174,28 +174,26 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
     while (ind < size)
     {
         // Compute dynamic compression data
-        const dynamic_comp_res dynamic_comp_res = compute_dynamic_comp_data(data, size, writer, ind, mem);
+        const CompressionInfo compression_info = process_block(data, size, writer, ind, mem);
         // Compute compressed size with dynamic and fixed codes
-        const int dynamic_compressed_size = compressed_size_with_dynamic_codes(data, dynamic_comp_res);
-        const int fixed_compressed_size = compressed_size_with_fixed_codes(data, dynamic_comp_res);
 
         // Select best compression mode
         // Dynamic codes are only used if they are smaller than fixed codes and the uncompressed data
-        if (dynamic_compressed_size >= fixed_compressed_size ||
-            dynamic_compressed_size >= dynamic_comp_res.uncompressed_size)
+        if (compression_info.dynamic_compression_size >= compression_info.fixed_compression_size ||
+            compression_info.dynamic_compression_size >= compression_info.uncompressed_size)
         {
             // Use fixed codes if they are smaller than the uncompressed data
-            if (fixed_compressed_size >= dynamic_comp_res.uncompressed_size)
-                deflate_uncompressed(data, dynamic_comp_res.uncompressed_size, ind,
-                                     dynamic_comp_res.is_last_block, writer);
+            if (compression_info.fixed_compression_size >= compression_info.uncompressed_size)
+                deflate_uncompressed(data, ind, writer, compression_info);
 
             else // No compression if both static and dynamic do not reduce the size
-                deflate_fixed(data, writer, dynamic_comp_res, fixed_compressed_size);
+                deflate_fixed(data, writer, compression_info, mem);
         }
 
-        else deflate_dynamic(dynamic_comp_res, writer, data, dynamic_compressed_size);
+        else
+            deflate_dynamic(compression_info, writer, data, mem);
 
-        ind += dynamic_comp_res.uncompressed_size;
+        ind += compression_info.uncompressed_size;
         mem.Clean();
     }
 
@@ -307,14 +305,13 @@ Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tr
     }
 }
 
-int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const int size, std::list<Match>& matches,
-                                         Huffman_Tree*& lit_len_tree, Huffman_Tree*& dist_tree,
-                                         Memory& mem)
+int
+Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const int size, Huffman_Tree*& lit_len_tree,
+                                     Huffman_Tree*& dist_tree, Memory& mem)
 {
     bool matchOnPreviousByte = false;
     int ind = offset;
     mem.lit_len_frequency_table[256] = 1; // End of block
-    int num_symbols = 1; // End of block
     int h = data[ind];
 
     int prev_match = -1;
@@ -324,7 +321,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
     update_hash(h, data[ind + 1]); // Update hash of first two bytes
 
     // Find matches
-    while (ind < size - 2 && num_symbols < MAX_SYMBOLS_PER_BLOCK)
+    while (ind < size - 2 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
         update_hash(h, data[ind + 2]); // Compute new hash
         bool match = mem.head[h] > 0 && (ind - mem.head[h] <= 32768 && data[ind] == data[mem.head[h]] &&
@@ -344,8 +341,9 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
 
                 mem.lit_len_frequency_table[prev_length_code]++;
                 mem.dist_frequency_table[prev_dist_code]++;
-                num_symbols++;
-                matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, prev_length_code, prev_dist_code);
+                mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist,
+                                                           prev_length_code,
+                                                           prev_dist_code);
 
 
                 // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
@@ -357,12 +355,16 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                     mem.head[h] = ind;
                 }
             }
+            else
+            {
+                // Add the current byte as a literal
+                mem.symbols[mem.num_symbols++] = new Match(data[ind]);
+                mem.lit_len_frequency_table[data[ind]]++;
+            }
 
-            // Add the current byte as a literal
-            num_symbols++;
-            mem.lit_len_frequency_table[data[ind]]++;
             ind++;
             prev_match_len = 3;
+
         }
         else
         {
@@ -424,8 +426,8 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
 
                     mem.lit_len_frequency_table[prev_length_code]++;
                     mem.dist_frequency_table[prev_dist_code]++;
-                    num_symbols++;
-                    matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, prev_length_code, prev_dist_code);
+                    mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist,
+                                                               prev_length_code, prev_dist_code);
 
                     // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
                     for (int i = 0; i < prev_match_len - 2; ++i)
@@ -444,7 +446,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
                 else // Add the previous match as a literal
                 {
                     mem.lit_len_frequency_table[data[ind - 1]]++;
-                    num_symbols++;
+                    mem.symbols[mem.num_symbols++] = new Match(data[ind - 1]);
 
                     // Register current match
                     prev_match = best_match;
@@ -468,31 +470,44 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
         matchOnPreviousByte = match;
     }
 
-    if (matchOnPreviousByte) // Add the last match
+    if (matchOnPreviousByte)
     {
-        const int length_code = length_to_length_code(prev_match_len);
-        const int dist_code = distance_to_distance_code(prev_match_dist);
+        if (mem.num_symbols < MAX_SYMBOLS_PER_BLOCK) // Add the last match
+        {
+            const int length_code = length_to_length_code(prev_match_len);
+            const int dist_code = distance_to_distance_code(prev_match_dist);
 
-        mem.lit_len_frequency_table[length_code]++;
-        mem.dist_frequency_table[dist_code]++;
-        num_symbols++;
-        matches.emplace_back(ind - 1, prev_match_len, prev_match_dist, length_code, dist_code);
-        ind += prev_match_len - 1;
+            mem.lit_len_frequency_table[length_code]++;
+            mem.dist_frequency_table[dist_code]++;
+            mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist, length_code,
+                                                       dist_code);
+            ind += prev_match_len - 1;
+        }
+        else ind--; // As the last match has not been added, we go back one byte
     }
 
     // Add the last 2 or 1 bytes as literals
-    if (ind == size - 2)
+    if (ind == size - 2 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        num_symbols++;
+        mem.symbols[mem.num_symbols++] = new Match(data[ind]);
         mem.lit_len_frequency_table[data[ind++]]++;
     }
-    if (ind == size - 1)
+    if (ind == size - 1 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        num_symbols++;
+        mem.symbols[mem.num_symbols++] = new Match(data[ind]);
         mem.lit_len_frequency_table[data[ind++]]++;
     }
 
-    if (matches.empty()) // No match -> We provide distances
+    bool at_least_one_match;
+    for (int i : mem.dist_frequency_table)
+    {
+        if (i > 0)
+        {
+            at_least_one_match = true;
+            break;
+        }
+    }
+    if (!at_least_one_match) // No match -> We provide distances
     {
         // Two distance codes are required to build a tree
         mem.dist_frequency_table[0] = 1;
@@ -503,7 +518,7 @@ int Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, con
     lit_len_tree = new Huffman_Tree(mem.lit_len_frequency_table, 286);
     dist_tree = new Huffman_Tree(mem.dist_frequency_table, 30);
 
-    return num_symbols < MAX_SYMBOLS_PER_BLOCK ? size - offset : ind - offset;
+    return ind - offset;
 }
 
 int Deflate::Main::length_to_length_code(const int length)
@@ -690,21 +705,18 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
                     break; // Don't add the last 0s
                 int code = k < 11 ? 17 : 18;
                 mem.code_lengths_frequency_table[code]++;
-                mem.dynamic_compression_size += code == 17 ? 3 : 7;
                 code_lengths_to_write.emplace_back(code, k);
             }
             else // Other repetitions
             {
                 // Code to repeat
                 mem.code_lengths_frequency_table[codes[j].length]++;
-                mem.dynamic_compression_size += codes[j].length;
                 code_lengths_to_write.emplace_back(codes[j].length, 1);
 
                 // Repetition
                 const int rep = k - 1;
                 const int num_rep = rep / 6;
                 mem.code_lengths_frequency_table[16] += num_rep;
-                mem.dynamic_compression_size += num_rep * 2;
                 for (int i = 0; i < num_rep; ++i)
                     code_lengths_to_write.emplace_back(16, 6);
 
@@ -713,13 +725,11 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
                 if (l > 2) // Register a repetition of 3, 4 or 5
                 {
                     mem.code_lengths_frequency_table[16]++;
-                    mem.dynamic_compression_size += 2;
                     code_lengths_to_write.emplace_back(16, l);
                 }
                 else // Register the last character which is not in any repetition
                 {
                     mem.code_lengths_frequency_table[codes[j].length] += l;
-                    mem.dynamic_compression_size += l * codes[j].length;
                     for (int i = 0; i < l; ++i)
                         code_lengths_to_write.emplace_back(codes[j].length, 1);
                 }
@@ -728,7 +738,6 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
         else // No repetition
         {
             mem.code_lengths_frequency_table[codes[j].length] += k;
-            mem.dynamic_compression_size += k * codes[j].length;
             for (int i = 0; i < k; ++i)
                 code_lengths_to_write.emplace_back(codes[j].length, 1);
         }
@@ -764,22 +773,21 @@ void Deflate::Main::write_code_lengths(Deflate::Writer& writer, const std::vecto
     }
 }
 
-void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset,
-                                          const int size,
-                                          const std::list<Match>& matches,
+void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset, const int size,
                                           const Deflate::Huffman_Tree::Code* lit_len_codes,
-                                          const Deflate::Huffman_Tree::Code* distance_codes)
+                                          const Deflate::Huffman_Tree::Code* distance_codes, const Memory& mem)
 {
-    int index = offset;
-    int nextMatchPos = matches.empty() ? size : matches.front().position();
-    auto nextMatchIter = matches.begin();
-    while (index < offset + size)
+    for (int i = 0; i < mem.num_symbols; ++i)
     {
-        if (index == nextMatchPos) // Match
+        Match* m = mem.symbols[i];
+
+        if (m->length() == 0)
+            writer.write_code(lit_len_codes[m->val()].code, lit_len_codes[m->val()].length);
+        else
         {
             // Write the match
-            const int length = (*nextMatchIter).length();
-            const int length_code_value = nextMatchIter->length_code();
+            const int length = m->length();
+            const int length_code_value = m->length_code();
             writer.write_code(lit_len_codes[length_code_value].code, lit_len_codes[length_code_value].length);
 
             // Write the extra bits
@@ -788,22 +796,14 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* d
             writer.write_number(extra_bits_value, num_extra_bits);
 
             // Write the distance
-            const int distance = (*nextMatchIter).distance();
-            const int distance_code_value = distance_to_distance_code(distance);
+            const int distance = m->distance();
+            const int distance_code_value = m->dist_code();
             writer.write_code(distance_codes[distance_code_value].code, distance_codes[distance_code_value].length);
 
             // Write the extra bits
             const int distance_extra_bits_value = distance - dist_code_to_dist[distance_code_value];
             const int num_distance_extra_bits = distances_extra_bits[distance_code_value];
             writer.write_number(distance_extra_bits_value, num_distance_extra_bits);
-
-            index += (*nextMatchIter).length();
-            nextMatchPos = ++nextMatchIter == matches.end() ? size : (*nextMatchIter).position();
-        }
-        else // Literal
-        {
-            writer.write_code(lit_len_codes[data[index]].code, lit_len_codes[data[index]].length);
-            index++;
         }
     }
 }
@@ -870,17 +870,18 @@ void Deflate::Main::Test_file(const std::string& file_name, const bool verify_co
     delete[] data;
 }
 
-Deflate::Main::dynamic_comp_res
-Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer& writer, const int offset,
-                                         Memory& mem)
+Deflate::Main::CompressionInfo
+Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, const int offset,
+                             Memory& mem)
 {
     int ind = offset;
+    int dynamic_compression_size = 1 + 2 + 10 + 4; // BFINAL BTYPE HLIT HDIST HCLEN
+    int fixed_compression_size = 3; // BFINAL BTYPE
 
     // Compute the dynamic trees by finding the matches
     Huffman_Tree* lit_len_tree;
     Huffman_Tree* dist_tree;
-    auto* matches = new std::list<Match>();
-    int uncompressed_block_size = compute_dynamic_trees(data, ind, data_size, *matches, lit_len_tree, dist_tree,
+    int uncompressed_block_size = compute_dynamic_trees(data, ind, data_size, lit_len_tree, dist_tree,
                                                         mem);
 
     // Compute canonical codes
@@ -891,8 +892,6 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
     // Compute lit/len + beginning of code length frequency table
     auto* lit_len_code_lengths_to_write = new std::vector<std::pair<int, int>>();
     const int provided_lit_len = enumerate_code_lengths(286, lit_len_codes, 138, *lit_len_code_lengths_to_write, mem);
-    //Todo: Change enum signature to take mem in order to do part of the computation of dynamic_compression_size
-    // Make the whole computation of static and dynamic compression size in this function
 
     // Compute distance + end of code length frequency table
     auto* dist_code_lengths_to_write = new std::vector<std::pair<int, int>>();
@@ -909,14 +908,79 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
     while (code_length_codes[code_length_codes_order[num_code_length_code_length_to_write - 1]].length == 0 &&
            num_code_length_code_length_to_write >= 0)
         --num_code_length_code_length_to_write;
-    mem.dynamic_compression_size += 3 * num_code_length_code_length_to_write;
+
+    // Compute the dynamic compression size of the code length code lengths
+    dynamic_compression_size += 3 * num_code_length_code_length_to_write;
+
+    // Compute the dynamic compression size of the code lengths
+    for (const auto& code_lengths_to_write : {lit_len_code_lengths_to_write, dist_code_lengths_to_write})
+    {
+        for (const auto& [code_length, extra_bits_val] : *code_lengths_to_write)
+        {
+            dynamic_compression_size += code_length_codes[code_length].length;
+            switch (code_length)
+            {
+                case 16:
+                    dynamic_compression_size += 2;
+                    break;
+                case 17:
+                    dynamic_compression_size += 3;
+                    break;
+                case 18:
+                    dynamic_compression_size += 7;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    // Compute the dynamic and fixed compression size of the data itself
+    for (int i = 0; i < mem.num_symbols; ++i)
+    {
+        Match* m = mem.symbols[i];
+
+        if (m->length() == 0)
+        {
+            // Add the size of the literal
+            dynamic_compression_size += lit_len_codes[m->val()].length;
+            fixed_compression_size += lit_len_fixed_code_length(m->val());
+        }
+        else
+        {
+            // Add the size of the match
+            const int length_code = m->length_code();
+            const int dist_code = m->dist_code();
+
+            // Dynamic
+            dynamic_compression_size += lit_len_codes[length_code].length;
+            dynamic_compression_size += distance_codes[dist_code].length;
+            dynamic_compression_size += lengths_extra_bits[length_code];
+            dynamic_compression_size += distances_extra_bits[dist_code];
+
+            // Fixed
+            fixed_compression_size += lit_len_fixed_code_length(length_code); // Length code length
+            fixed_compression_size += lengths_extra_bits[length_code]; // Length extra bits
+            fixed_compression_size += 5; // Distance code length
+            fixed_compression_size += distances_extra_bits[dist_code]; // Distance extra bits
+        }
+    }
+
+    // Add the size of the end of block
+    dynamic_compression_size += lit_len_codes[256].length;
+    fixed_compression_size += lit_len_fixed_code_length(256);
+
+    // Divide by 8 to get the number of bytes
+    dynamic_compression_size /= 8;
+    fixed_compression_size /= 8;
 
 
     // Save the computed information
-    dynamic_comp_res res = dynamic_comp_res(offset, uncompressed_block_size, provided_lit_len, provided_dist_codes,
-                                            num_code_length_code_length_to_write, lit_len_code_lengths_to_write,
-                                            dist_code_lengths_to_write, code_length_codes, lit_len_codes,
-                                            distance_codes, matches, offset + uncompressed_block_size == data_size);
+    CompressionInfo res = CompressionInfo(offset, uncompressed_block_size, provided_lit_len, provided_dist_codes,
+                                          num_code_length_code_length_to_write, lit_len_code_lengths_to_write,
+                                          dist_code_lengths_to_write, code_length_codes, lit_len_codes,
+                                          distance_codes, offset + uncompressed_block_size == data_size,
+                                          dynamic_compression_size, fixed_compression_size);
     // Free memory
     delete lit_len_tree;
     delete dist_tree;
@@ -925,30 +989,27 @@ Deflate::Main::compute_dynamic_comp_data(const Byte* data, int data_size, Writer
 }
 
 void
-Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const dynamic_comp_res& dynamic_comp_res,
-                             const int compressed_size)
+Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
+                             const Memory& mem)
 {
     // Avoid reallocation
-    writer.data->reserve(writer.data->size() + compressed_size);
+    writer.data->reserve(writer.data->size() + compression_info.fixed_compression_size);
 
-    writer.write_number(dynamic_comp_res.is_last_block, 1); // BFINAL
+    writer.write_number(compression_info.is_last_block, 1); // BFINAL
     writer.write_number(1, 2); // BTYPE
 
-    int ind = dynamic_comp_res.offset;
-    int nextMatchPos = dynamic_comp_res.matches->empty() ? dynamic_comp_res.uncompressed_size
-                                                         : dynamic_comp_res.matches->front().position();
-    auto nextMatchIter = dynamic_comp_res.matches->begin();
-    const int block_end = dynamic_comp_res.offset + dynamic_comp_res.uncompressed_size;
-
-    // Write the block
-    while (ind < block_end)
+    for (int i = 0; i < mem.num_symbols; ++i)
     {
-        if (ind == nextMatchPos) // Match
+        Match* m = mem.symbols[i];
+
+        if (m->length() == 0)
+            writer.write_code(fixed_lit_len_values_codes[m->val()], lit_len_fixed_code_length(m->val()));
+        else
         {
-            const int length = nextMatchIter->length();
-            const int distance = nextMatchIter->distance();
-            const int length_code = nextMatchIter->length_code();
-            const int dist_code = nextMatchIter->dist_code();
+            const int length = m->length();
+            const int distance = m->distance();
+            const int length_code = m->length_code();
+            const int dist_code = m->dist_code();
 
             // Length
             writer.write_code(fixed_lit_len_values_codes[length_code],
@@ -959,16 +1020,6 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const dy
             writer.write_number(dist_code, 5); // Distance code
             writer.write_number(distance - dist_code_to_dist[dist_code],
                                 distances_extra_bits[dist_code]); // Distance extra
-
-            ind += length;
-            nextMatchIter++;
-            nextMatchPos = nextMatchIter == dynamic_comp_res.matches->end() ? dynamic_comp_res.uncompressed_size
-                                                                            : nextMatchIter->position();
-        }
-        else // Literal
-        {
-            writer.write_code(fixed_lit_len_values_codes[data[ind]], lit_len_fixed_code_length(data[ind]));
-            ind++;
         }
     }
 
@@ -976,66 +1027,23 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const dy
 }
 
 void
-Deflate::Main::deflate_uncompressed(const Byte* data, const int num_bytes, const int offset, const bool is_last_block,
-                                    Writer& writer)
+Deflate::Main::deflate_uncompressed(const Byte* data, const int offset, Writer& writer,
+                                    const CompressionInfo& compression_info)
 {
     // Avoid reallocation
-    writer.data->reserve(writer.data->size() + num_bytes);
+    writer.data->reserve(writer.data->size() + compression_info.uncompressed_size);
 
-    writer.write_number(is_last_block, 1); // BFINAL
+    writer.write_number(compression_info.is_last_block, 1); // BFINAL
     writer.write_number(0, 2); // BTYPE
 
     writer.write_curr_byte_if_not_empty(); // Padding
 
-    writer.write_number(num_bytes, 16); // LEN
-    writer.write_number(~num_bytes, 16); // NLEN
+    writer.write_number(compression_info.uncompressed_size, 16); // LEN
+    writer.write_number(~compression_info.uncompressed_size, 16); // NLEN
 
     // Write the block
-    for (int i = 0; i < num_bytes; ++i)
+    for (int i = 0; i < compression_info.uncompressed_size; ++i)
         writer.write_raw_byte(data[offset + i]);
-}
-
-int Deflate::Main::compressed_size_with_fixed_codes(const Byte* data, const dynamic_comp_res& dynamic_comp_res)
-{
-    int ind = dynamic_comp_res.offset;
-    int compressed_size = 3; // BFINAL & BTYPE
-
-    int nextMatchPos = dynamic_comp_res.matches->empty() ? dynamic_comp_res.uncompressed_size
-                                                         : dynamic_comp_res.matches->front().position();
-    auto nextMatchIter = dynamic_comp_res.matches->begin();
-
-
-    // Compute the compressed size
-    const int block_end = dynamic_comp_res.offset + dynamic_comp_res.uncompressed_size;
-    while (ind < block_end)
-    {
-        if (ind == nextMatchPos) // Match
-        {
-            const int length = nextMatchIter->length();
-            const int distance = nextMatchIter->distance();
-            const int length_code = nextMatchIter->length_code();
-            const int distance_code = nextMatchIter->dist_code();
-
-            // Length
-            compressed_size += lit_len_fixed_code_length(length_code); // Length code length
-            compressed_size += lengths_extra_bits[length_code]; // Length extra bits
-            // Distance
-            compressed_size += 5; // Distance code length
-            compressed_size += distances_extra_bits[distance_code]; // Distance extra bits
-            ind += (*nextMatchIter).length();
-            nextMatchPos = ++nextMatchIter == dynamic_comp_res.matches->end() ? dynamic_comp_res.uncompressed_size
-                                                                              : (*nextMatchIter).position();
-        }
-        else
-        {
-            compressed_size += lit_len_fixed_code_length(data[ind]);
-            ++ind;
-        }
-    }
-
-    compressed_size += lit_len_fixed_code_length(256); // End of block
-
-    return compressed_size / 8; // In bytes
 }
 
 int Deflate::Main::lit_len_fixed_code_length(const int lit_len)
@@ -1050,123 +1058,37 @@ int Deflate::Main::lit_len_fixed_code_length(const int lit_len)
     throw std::runtime_error("Invalid literal/length");
 }
 
-void Deflate::Main::deflate_dynamic(const dynamic_comp_res& dynamic_comp_res, Deflate::Writer& writer, const Byte* data,
-                                    const int compressed_size)
+void Deflate::Main::deflate_dynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
+                                    const Memory& mem)
 {
     // Avoid reallocation
-    writer.data->reserve(writer.data->size() + compressed_size);
+    writer.data->reserve(writer.data->size() + compression_info.dynamic_compression_size);
 
-    writer.write_number(dynamic_comp_res.is_last_block, 1); // BFINAL
+    writer.write_number(compression_info.is_last_block, 1); // BFINAL
     writer.write_number(2, 2); // BTYPE
-    writer.write_number(dynamic_comp_res.provided_lit_len - 257, 5); // HLIT
-    writer.write_number(dynamic_comp_res.provided_dist_codes - 1, 5); // HDIST
-    writer.write_number(dynamic_comp_res.num_code_length_code_length_to_write - 4, 4); // HCLEN
+    writer.write_number(compression_info.provided_lit_len - 257, 5); // HLIT
+    writer.write_number(compression_info.provided_dist_codes - 1, 5); // HDIST
+    writer.write_number(compression_info.num_code_length_code_length_to_write - 4, 4); // HCLEN
 
     // Write the code length code lengths
-    for (int k = 0; k < dynamic_comp_res.num_code_length_code_length_to_write; ++k)
-        writer.write_number(dynamic_comp_res.code_length_codes[code_length_codes_order[k]].length, 3);
+    for (int k = 0; k < compression_info.num_code_length_code_length_to_write; ++k)
+        writer.write_number(compression_info.code_length_codes[code_length_codes_order[k]].length, 3);
 
     // Write lit/len code lengths
-    write_code_lengths(writer, *dynamic_comp_res.lit_len_code_lengths_to_write,
-                       dynamic_comp_res.code_length_codes);
+    write_code_lengths(writer, *compression_info.lit_len_code_lengths_to_write,
+                       compression_info.code_length_codes);
     // Write distance code lengths
-    write_code_lengths(writer, *dynamic_comp_res.dist_code_lengths_to_write,
-                       dynamic_comp_res.code_length_codes);
+    write_code_lengths(writer, *compression_info.dist_code_lengths_to_write,
+                       compression_info.code_length_codes);
 
     // Write the compressed data
-    write_compressed_data(writer, data, dynamic_comp_res.offset, dynamic_comp_res.uncompressed_size,
-                          *dynamic_comp_res.matches,
-                          dynamic_comp_res.lit_len_codes,
-                          dynamic_comp_res.dist_codes);
+    write_compressed_data(writer, data, compression_info.offset, compression_info.uncompressed_size,
+                          compression_info.lit_len_codes,
+                          compression_info.dist_codes, mem);
 
     // Write end of block
-    writer.write_code(dynamic_comp_res.lit_len_codes[256].code,
-                      dynamic_comp_res.lit_len_codes[256].length);
-}
-
-int Deflate::Main::compressed_size_with_dynamic_codes(const Byte* data,
-                                                      const Deflate::Main::dynamic_comp_res& dynamic_comp_res)
-{
-    int ind = dynamic_comp_res.offset;
-    int compressed_size = 0;
-
-    compressed_size += 3; // BFINAL & BTYPE
-    compressed_size += 10; // HLIT & HDIST
-    compressed_size += 4; // HCLEN
-    compressed_size += dynamic_comp_res.num_code_length_code_length_to_write * 3; // Code length code lengths
-
-    // Lit/len code lengths
-    for (const auto& [code_length, extra_bits_val] : (*dynamic_comp_res.lit_len_code_lengths_to_write))
-    {
-        compressed_size += dynamic_comp_res.code_length_codes[code_length].length;
-        switch (code_length)
-        {
-            case 16:
-                compressed_size += 2;
-                break;
-            case 17:
-                compressed_size += 3;
-                break;
-            case 18:
-                compressed_size += 7;
-                break;
-            default:
-                break;
-        }
-    }
-    // Dist code lengths
-    for (const auto& [code_length, extra_bits_val] : (*dynamic_comp_res.dist_code_lengths_to_write))
-    {
-        compressed_size += dynamic_comp_res.code_length_codes[code_length].length;
-        switch (code_length)
-        {
-            case 16:
-                compressed_size += 2;
-                break;
-            case 17:
-                compressed_size += 3;
-                break;
-            case 18:
-                compressed_size += 7;
-                break;
-            default:
-                break;
-        }
-    }
-
-    auto nextMatchIter = dynamic_comp_res.matches->begin();
-    int nextMatchPos = dynamic_comp_res.matches->empty() ? dynamic_comp_res.uncompressed_size
-                                                         : dynamic_comp_res.matches->front().position();
-
-    // Compute the compressed size
-    const int block_end = dynamic_comp_res.offset + dynamic_comp_res.uncompressed_size;
-    while (ind < block_end)
-    {
-        if (ind == nextMatchPos) // Match
-        {
-            const int length_code = nextMatchIter->length_code();
-            const int dist_code = nextMatchIter->dist_code();
-
-            // Add the size of the match
-            compressed_size += dynamic_comp_res.lit_len_codes[length_code].length;
-            compressed_size += dynamic_comp_res.dist_codes[dist_code].length;
-            compressed_size += lengths_extra_bits[length_code];
-            compressed_size += distances_extra_bits[dist_code];
-
-            ind += (*nextMatchIter).length();
-            nextMatchPos = ++nextMatchIter == dynamic_comp_res.matches->end() ? dynamic_comp_res.uncompressed_size
-                                                                              : (*nextMatchIter).position();
-        }
-        else
-        {
-            compressed_size += dynamic_comp_res.lit_len_codes[data[ind]].length;
-            ++ind;
-        }
-    }
-
-    compressed_size += dynamic_comp_res.lit_len_codes[256].length; // End of block
-
-    return compressed_size / 8; // In bytes
+    writer.write_code(compression_info.lit_len_codes[256].code,
+                      compression_info.lit_len_codes[256].length);
 }
 
 void Deflate::Main::build_fixed_huffman_lit_len_values_codes()
@@ -1183,15 +1105,15 @@ void Deflate::Main::build_fixed_huffman_lit_len_values_codes()
 }
 
 
-Deflate::Main::dynamic_comp_res::dynamic_comp_res(const int offset, const int uncompressedSize,
-                                                  const int providedLitLen, const int providedDistCodes,
-                                                  const int numCodeLengthCodeLengthToWrite,
-                                                  const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
-                                                  const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
-                                                  const Deflate::Huffman_Tree::Code* codeLengthCodes,
-                                                  const Deflate::Huffman_Tree::Code* litLenCodes,
-                                                  const Deflate::Huffman_Tree::Code* distCodes,
-                                                  const std::list<Deflate::Match>* matches, const bool is_last_block)
+Deflate::Main::CompressionInfo::CompressionInfo(int offset, int uncompressedSize, int providedLitLen,
+                                                int providedDistCodes,
+                                                int numCodeLengthCodeLengthToWrite,
+                                                const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
+                                                const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
+                                                const Huffman_Tree::Code* codeLengthCodes,
+                                                const Deflate::Huffman_Tree::Code* litLenCodes,
+                                                const Deflate::Huffman_Tree::Code* distCodes, bool is_last_block,
+                                                const int dynamic_compression_size, const int fixed_compression_size)
         : offset(offset),
           uncompressed_size(
                   uncompressedSize),
@@ -1210,16 +1132,16 @@ Deflate::Main::dynamic_comp_res::dynamic_comp_res(const int offset, const int un
           lit_len_codes(
                   litLenCodes),
           dist_codes(distCodes),
-          matches(matches),
-          is_last_block(is_last_block)
+          is_last_block(is_last_block),
+          dynamic_compression_size(dynamic_compression_size),
+          fixed_compression_size(fixed_compression_size)
 {}
 
-Deflate::Main::dynamic_comp_res::~dynamic_comp_res()
+Deflate::Main::CompressionInfo::~CompressionInfo()
 {
     delete[] code_length_codes;
     delete[] lit_len_codes;
     delete[] dist_codes;
-    delete matches;
     delete lit_len_code_lengths_to_write;
     delete dist_code_lengths_to_write;
 }
