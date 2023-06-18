@@ -22,7 +22,7 @@ namespace Deflate
         int dist_frequency_table[30];
         int code_lengths_frequency_table[19];
 
-        Match* symbols[Main::MAX_SYMBOLS_PER_BLOCK];
+        Match symbols[Main::MAX_SYMBOLS_PER_BLOCK];
         int num_symbols = 0;
 
         /** \brief Resets the memory to its initial state */

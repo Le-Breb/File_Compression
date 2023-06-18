@@ -341,9 +341,9 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
 
                 mem.lit_len_frequency_table[prev_length_code]++;
                 mem.dist_frequency_table[prev_dist_code]++;
-                mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist,
-                                                           prev_length_code,
-                                                           prev_dist_code);
+                mem.symbols[mem.num_symbols++] = Match(data[ind - 1], prev_match_len, prev_match_dist,
+                                                       prev_length_code,
+                                                       prev_dist_code);
 
 
                 // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
@@ -358,7 +358,7 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
             else
             {
                 // Add the current byte as a literal
-                mem.symbols[mem.num_symbols++] = new Match(data[ind]);
+                mem.symbols[mem.num_symbols++] = Match(data[ind]);
                 mem.lit_len_frequency_table[data[ind]]++;
             }
 
@@ -426,8 +426,8 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
 
                     mem.lit_len_frequency_table[prev_length_code]++;
                     mem.dist_frequency_table[prev_dist_code]++;
-                    mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist,
-                                                               prev_length_code, prev_dist_code);
+                    mem.symbols[mem.num_symbols++] = Match(data[ind - 1], prev_match_len, prev_match_dist,
+                                                           prev_length_code, prev_dist_code);
 
                     // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
                     for (int i = 0; i < prev_match_len - 2; ++i)
@@ -446,7 +446,7 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
                 else // Add the previous match as a literal
                 {
                     mem.lit_len_frequency_table[data[ind - 1]]++;
-                    mem.symbols[mem.num_symbols++] = new Match(data[ind - 1]);
+                    mem.symbols[mem.num_symbols++] = Match(data[ind - 1]);
 
                     // Register current match
                     prev_match = best_match;
@@ -479,8 +479,8 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
 
             mem.lit_len_frequency_table[length_code]++;
             mem.dist_frequency_table[dist_code]++;
-            mem.symbols[mem.num_symbols++] = new Match(data[ind - 1], prev_match_len, prev_match_dist, length_code,
-                                                       dist_code);
+            mem.symbols[mem.num_symbols++] = Match(data[ind - 1], prev_match_len, prev_match_dist, length_code,
+                                                   dist_code);
             ind += prev_match_len - 1;
         }
         else ind--; // As the last match has not been added, we go back one byte
@@ -489,12 +489,12 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
     // Add the last 2 or 1 bytes as literals
     if (ind == size - 2 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        mem.symbols[mem.num_symbols++] = new Match(data[ind]);
+        mem.symbols[mem.num_symbols++] = Match(data[ind]);
         mem.lit_len_frequency_table[data[ind++]]++;
     }
     if (ind == size - 1 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        mem.symbols[mem.num_symbols++] = new Match(data[ind]);
+        mem.symbols[mem.num_symbols++] = Match(data[ind]);
         mem.lit_len_frequency_table[data[ind++]]++;
     }
 
@@ -779,7 +779,7 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* d
 {
     for (int i = 0; i < mem.num_symbols; ++i)
     {
-        Match* m = mem.symbols[i];
+        const Match* m = &mem.symbols[i];
 
         if (m->length() == 0)
             writer.write_code(lit_len_codes[m->val()].code, lit_len_codes[m->val()].length);
@@ -938,7 +938,7 @@ Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, co
     // Compute the dynamic and fixed compression size of the data itself
     for (int i = 0; i < mem.num_symbols; ++i)
     {
-        Match* m = mem.symbols[i];
+        const Match* m = &mem.symbols[i];
 
         if (m->length() == 0)
         {
@@ -1000,7 +1000,7 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const Co
 
     for (int i = 0; i < mem.num_symbols; ++i)
     {
-        Match* m = mem.symbols[i];
+        const Match* m = &mem.symbols[i];
 
         if (m->length() == 0)
             writer.write_code(fixed_lit_len_values_codes[m->val()], lit_len_fixed_code_length(m->val()));

@@ -52,7 +52,7 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
 //ToDo: Procedurally check all dates and times
 //Todo: Reorder compute_dynamic_trees
 //Todo: Tester le cas où il y a plus d138 0s à la suite dans enumerate_code_lengths
-//Todo: Store single literals as a match of length and dist 0, so that we can make a symbol buffer of fixed size
+//Todo: Benchmark ce commit et le précédent pour voir en quoi celui-ci est plus lent
 int main(int argc, char* argv[])
 {
     Deflate::Main::Test_file(
