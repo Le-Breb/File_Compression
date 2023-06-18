@@ -18,6 +18,7 @@ namespace Deflate
     class Main
     {
     public:
+        /** \brief Limit of searches in a hash chains. Reduces compression efficiency but makes it faster */
         static const int MAX_CHAIN_LENGTH = 1024;
         static const int MAX_CODE_LENGTH = 15;
         static const int MAX_CODE_LENGTH_CODE_LENGTH = 7;
@@ -41,8 +42,12 @@ namespace Deflate
         static void Test_file(const std::string& file_name, bool verify_compression);
 
     private:
-        /** \brief Limit of searches in a hash chains. Reduces compression efficiency but makes it faster */
+        static void
+        SavePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h);
 
+        static void
+        FindBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist, int& ind,
+                      int size);
 
         struct CompressionInfo
         {

@@ -315,7 +315,7 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
     int h = data[ind];
 
     int prev_match = -1;
-    int prev_match_len = 0;
+    int prev_match_len = 2;
     int prev_match_dist = 0;
 
     update_hash(h, data[ind + 1]); // Update hash of first two bytes
@@ -332,116 +332,21 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
         mem.prev[ind & window_mask] = mem.head[h];
         mem.head[h] = ind;
 
-        if (!match)
+        int best_len = matchOnPreviousByte ? prev_match_len : 2;
+
+        if (match)
         {
-            if (matchOnPreviousByte) // Add the previous and better match
-            {
-                const int prev_length_code = length_to_length_code(prev_match_len);
-                const int prev_dist_code = distance_to_distance_code(prev_match_dist);
+            int best_match_dist = 0;
+            int best_match = mem.prev[ind & window_mask];
 
-                mem.lit_len_frequency_table[prev_length_code]++;
-                mem.dist_frequency_table[prev_dist_code]++;
-                mem.symbols[mem.num_symbols++] = Match(data[ind - 1], prev_match_len, prev_match_dist,
-                                                       prev_length_code,
-                                                       prev_dist_code);
-
-
-                // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
-                for (int i = 0; i < prev_match_len - 2; ++i)
-                {
-                    ind++;
-                    update_hash(h, data[ind + 2]);
-                    mem.prev[ind & window_mask] = mem.head[h];
-                    mem.head[h] = ind;
-                }
-            }
-            else
-            {
-                // Add the current byte as a literal
-                mem.symbols[mem.num_symbols++] = Match(data[ind]);
-                mem.lit_len_frequency_table[data[ind]]++;
-            }
-
-            ind++;
-            prev_match_len = 3;
-
-        }
-        else
-        {
-            int curr_match = mem.prev[ind & window_mask];
-            int best_match = curr_match;
-            int best_len = prev_match_len;
-            int chain_length = MAX_CHAIN_LENGTH;
-
-            // Find the best match
-            while (curr_match != -1 && curr_match != ind && ind - curr_match <= 32768 && chain_length > 0)
-            {
-                chain_length--;
-
-                // Check if the match is valid (Discards matches that are too far or hash collisions)
-                bool valid = true;
-                if (ind + best_len >= size)
-                    valid = false;
-                if (data[curr_match + best_len] != data[ind + best_len] ||
-                    data[curr_match + best_len - 1] != data[ind + best_len - 1] || data[ind] != data[curr_match] ||
-                    data[ind + 1] != data[curr_match + 1])
-                    valid = false;
-
-                // Advance in the hash chain
-                if (!valid)
-                {
-                    int p = mem.prev[curr_match & window_mask];
-                    if (p >= curr_match) // Hash collision
-                        break;
-                    curr_match = p;
-                    continue;
-                }
-
-                // Compute match length
-                int len = 2;
-                while (ind + len < size && data[curr_match + len] == data[ind + len] && len < 258)
-                    ++len;
-
-                // Update best match
-                if (len > best_len)
-                {
-                    best_len = len;
-                    best_match = curr_match;
-                }
-
-                // Advance in the hash chain
-                int p = mem.prev[curr_match & window_mask];
-                if (p >= curr_match) // Hash collision
-                    break;
-                curr_match = p;
-            }
-            const int best_match_dist = ind - best_match;
+            FindBestMatch(data, mem, best_len, best_match, best_match_dist, ind, size);
 
             if (matchOnPreviousByte)
             {
                 if (best_len <= prev_match_len) // Add the previous and better match
                 {
-                    const int prev_length_code = length_to_length_code(prev_match_len);
-                    const int prev_dist_code = distance_to_distance_code(prev_match_dist);
-
-                    mem.lit_len_frequency_table[prev_length_code]++;
-                    mem.dist_frequency_table[prev_dist_code]++;
-                    mem.symbols[mem.num_symbols++] = Match(data[ind - 1], prev_match_len, prev_match_dist,
-                                                           prev_length_code, prev_dist_code);
-
-                    // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
-                    for (int i = 0; i < prev_match_len - 2; ++i)
-                    {
-                        ind++;
-                        update_hash(h, data[ind + 2]);
-                        mem.prev[ind & window_mask] = mem.head[h];
-                        mem.head[h] = ind;
-                    }
-
-                    matchOnPreviousByte = false; // Mark current byte as a literal even though it is a match
-                    prev_match_len = 3;
-                    ind++;
-                    continue;
+                    SavePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
+                    best_len = 2;
                 }
                 else // Add the previous match as a literal
                 {
@@ -452,8 +357,6 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
                     prev_match = best_match;
                     prev_match_len = best_len;
                     prev_match_dist = best_match_dist;
-
-                    ind++;
                 }
             }
             else
@@ -462,15 +365,26 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
                 prev_match = best_match;
                 prev_match_len = best_len;
                 prev_match_dist = best_match_dist;
-
-                ind++;
             }
 
         }
-        matchOnPreviousByte = match;
+        else
+        {
+            if (matchOnPreviousByte) // Add the previous match
+                SavePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
+            else
+            {
+                // Add the current byte as a literal
+                mem.symbols[mem.num_symbols++] = Match(data[ind]);
+                mem.lit_len_frequency_table[data[ind]]++;
+            }
+        }
+
+        ind++;
+        matchOnPreviousByte = match && best_len >= 3;
     }
 
-    if (matchOnPreviousByte)
+    if (matchOnPreviousByte) // Add the last match
     {
         if (mem.num_symbols < MAX_SYMBOLS_PER_BLOCK) // Add the last match
         {
@@ -1102,6 +1016,77 @@ void Deflate::Main::build_fixed_huffman_lit_len_values_codes()
         fixed_lit_len_values_codes[c++] = i;
     for (int i = 0b11000000; i <= 0b11000111; i++)
         fixed_lit_len_values_codes[c++] = i;
+}
+
+void
+Deflate::Main::FindBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist,
+                             int& ind, int size)
+{
+    int curr_match = best_match;
+    int chain_length = MAX_CHAIN_LENGTH;
+    while (curr_match != -1 && curr_match != ind && ind - curr_match <= 32768 && chain_length > 0)
+    {
+        chain_length--;
+
+        // Check if the match is valid (Discards matches that are too far or hash collisions)
+        bool valid = true;
+        if (ind + best_len >= size)
+            valid = false;
+        if (data[curr_match + best_len] != data[ind + best_len] ||
+            data[curr_match + best_len - 1] != data[ind + best_len - 1] || data[ind] != data[curr_match] ||
+            data[ind + 1] != data[curr_match + 1])
+            valid = false;
+
+        // Advance in the hash chain
+        if (!valid)
+        {
+            int p = mem.prev[curr_match & window_mask];
+            if (p >= curr_match) // Hash collision
+                break;
+            curr_match = p;
+            continue;
+        }
+
+        // Compute match length
+        int len = 2;
+        while (ind + len < size && data[curr_match + len] == data[ind + len] && len < 258)
+            ++len;
+
+        // Update best match
+        if (len > best_len)
+        {
+            best_len = len;
+            best_match = curr_match;
+        }
+
+        // Advance in the hash chain
+        int p = mem.prev[curr_match & window_mask];
+        if (p >= curr_match) // Hash collision
+            break;
+        curr_match = p;
+    }
+    best_dist = ind - best_match;
+}
+
+void
+Deflate::Main::SavePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h)
+{
+    const int prev_length_code = length_to_length_code(len);
+    const int prev_dist_code = distance_to_distance_code(dist);
+
+    mem.lit_len_frequency_table[prev_length_code]++;
+    mem.dist_frequency_table[prev_dist_code]++;
+    mem.symbols[mem.num_symbols++] = Match(data[ind - 1], len, dist,
+                                           prev_length_code, prev_dist_code);
+
+    // Add the hashes for the bytes in the match - Hashes for ind - 1 and ind are already added
+    for (int i = 0; i < len - 2; ++i)
+    {
+        ind++;
+        update_hash(h, data[ind + 2]);
+        mem.prev[ind & window_mask] = mem.head[h];
+        mem.head[h] = ind;
+    }
 }
 
 

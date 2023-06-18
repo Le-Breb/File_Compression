@@ -48,11 +48,28 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
     return reversed;
 }
 
+/* https://en.wikipedia.org/wiki/ZIP_(file_format)
+ * https://en.wikipedia.org/wiki/Deflate
+ * https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+ * https://www.ietf.org/rfc/rfc1951.txt
+ * http://abcdrfc.free.fr/rfc-vf/rfc1951.html
+ * https://blog.za3k.com/understanding-gzip-2/
+ * http://pnrsolution.org/Datacenter/Vol4/Issue1/58.pdf
+ * https://jnior.com/deflate-compression-algorithm/
+ * https://github.dev/madler/zlib/blob/master/deflate.c#L2012
+ * https://www.euccas.me/zlib/#:~:text=In%20zlib%2C%20the%20default%20size%20of%20sliding%20window%20is%2064KB.
+ * https://www.zlib.net/manual.html
+*/
+
+
 //ToDo: Writing and reading bytes directly from an to file instead of storing them in a char array
 //ToDo: Procedurally check all dates and times
 //Todo: Reorder compute_dynamic_trees
 //Todo: Tester le cas où il y a plus d138 0s à la suite dans enumerate_code_lengths
 //Todo: Benchmark ce commit et le précédent pour voir en quoi celui-ci est plus lent
+//Todo: Faire un buffer pour les codes lenghts code lengths avec une classe dédiée ce qui permettrait de un
+// D'éviter de nomreuses allocations et désallocations mais aussi de ne plus avoir besoin de lit_len_code_lengths_to_write
+// et dist_code_lengths_to_read
 int main(int argc, char* argv[])
 {
     Deflate::Main::Test_file(
@@ -72,7 +89,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
-
-
-// Doc https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT - https://www.ietf.org/rfc/rfc1951.txt
