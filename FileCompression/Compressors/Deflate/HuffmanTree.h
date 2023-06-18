@@ -4,11 +4,11 @@
 #include <ostream>
 #include <vector>
 #include <unordered_map>
-#include "Stream_Reader.h"
+#include "StreamReader.h"
 
 namespace Deflate
 {
-    class Huffman_Tree
+    class HuffmanTree
     {
         class Node
         {
@@ -60,25 +60,25 @@ namespace Deflate
         /** \brief Computes canonical codes in a symbol => (code, code_length) dict
          * @param max_bit_length The maximum bit length of the computed codes
          * */
-        [[nodiscard]] Code* canonical_codes(int num_codes, int max_bit_length) const;
+        [[nodiscard]] Code* canonicalCodes(int num_codes, int max_bit_length) const;
 
         /** \brief Builds a Huffman tree with a symbol => num_occurrences dict */
         //explicit Huffman_Tree(const std::unordered_map<int, int>& frequency_table);
 
         /** \brief Builds a Huffman tree given num_codes codes. The key of each code is its index in the array */
-        explicit Huffman_Tree(const Code* codes, int num_codes);
+        explicit HuffmanTree(const Code* codes, int num_codes);
 
         /** \brief Builds a Huffman tree given size frequencies. The key of each frequency is its index in the array */
-        explicit Huffman_Tree(const int* frequency_table, int size);
+        explicit HuffmanTree(const int* frequency_table, int size);
 
-        ~Huffman_Tree()
+        ~HuffmanTree()
         { delete root_; }
 
         /** \brief Reads a key using the tree codes
          * @param reader The deflate reader used to read the dat
          */
-        int read_key(Stream_Reader& reader) const;
+        int readKey(StreamReader& reader) const;
 
-        friend std::ostream& operator<<(std::ostream& os, const Huffman_Tree& huffman_tree);
+        friend std::ostream& operator<<(std::ostream& os, const HuffmanTree& huffman_tree);
     };
 }

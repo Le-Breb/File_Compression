@@ -6,7 +6,7 @@
 
 namespace Deflate
 {
-    void Memory::Clean()
+    void Memory::clean()
     {
         for (auto& h : head)
             h = -1;
@@ -26,6 +26,6 @@ namespace Deflate
 
     Memory::Memory()
     {
-        Clean();
+        clean();
     }
 } // Deflate

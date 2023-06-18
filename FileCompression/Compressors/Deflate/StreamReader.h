@@ -2,8 +2,8 @@
 // Created by matmu on 28/05/2023.
 //
 
-#ifndef FILECOMPRESSION_STREAM_READER_H
-#define FILECOMPRESSION_STREAM_READER_H
+#ifndef FILECOMPRESSION_STREAMREADER_H
+#define FILECOMPRESSION_STREAMREADER_H
 
 #include <vector>
 
@@ -13,19 +13,19 @@ namespace Deflate
     /**
          * \brief Reader for compressed DEFLATE data.
          */
-    class Stream_Reader
+    class StreamReader
     {
         unsigned byte_offset_;
         unsigned bit_index_ = 0;
         const std::vector<Byte>* data_;
     public:
-        explicit Stream_Reader(const std::vector<Byte>* data) : byte_offset_{0}, data_{data}
+        explicit StreamReader(const std::vector<Byte>* data) : byte_offset_{0}, data_{data}
         {}
 
         /**
          * \brief Moves the reader to the next byte
          */
-        void skip_end_of_byte()
+        void skipEndOfByte()
         {
             if (bit_index_ != 0)
             {
@@ -38,15 +38,15 @@ namespace Deflate
          * \brief Reads a number of bits from the data in reverse order (first bit read is the LSB of the first byte)
          * \param count Number of bits to read
          */
-        std::vector<bool> read_bytes_forward(const int count)
+        std::vector<bool> readBytesForward(const int count)
         {
-            std::vector<bool> bits = read_bits(count);
+            std::vector<bool> bits = readBits(count);
             std::reverse(bits.begin(), bits.end());
 
             return bits;
         }
 
-        bool read_bit()
+        bool readBit()
         {
             const bool bit = (*data_)[byte_offset_] & (1 << bit_index_++);
             if (bit_index_ == 8)
@@ -62,7 +62,7 @@ namespace Deflate
          * \brief Reads a number of bits from the data in reverse order (first bit read is the LSB of the first byte)
          * \param count Number of bits to read
          */
-        std::vector<bool> read_bits(const int count)
+        std::vector<bool> readBits(const int count)
         {
             std::vector<bool> bits;
             bits.reserve(count);
@@ -84,7 +84,7 @@ namespace Deflate
          * \brief Reads a number from the data
          * \param bit_length Number of bit_length to read
          */
-        int read_number(const int bit_length)
+        int readNumber(const int bit_length)
         {
             int n = 0;
             for (int i = 0; i < bit_length; i++)
@@ -100,7 +100,7 @@ namespace Deflate
             return n;
         }
 
-        std::vector<Byte> read_bytes_v(const int count)
+        std::vector<Byte> readBytesV(const int count)
         {
             std::vector<Byte> bytes;
             bytes.reserve(count);
@@ -110,7 +110,7 @@ namespace Deflate
             return bytes;
         }
 
-        char* read_bytes(const int count)
+        char* readBytes(const int count)
         {
             char* bytes = new char[count];
             for (int i = 0; i < count; i++)
@@ -121,4 +121,4 @@ namespace Deflate
     };
 }
 
-#endif //FILECOMPRESSION_STREAM_READER_H
+#endif //FILECOMPRESSION_STREAMREADER_H

@@ -26,7 +26,7 @@ namespace Deflate
         int num_symbols = 0;
 
         /** \brief Resets the memory to its initial state */
-        void Clean();
+        void clean();
     };
 
 } // Deflate

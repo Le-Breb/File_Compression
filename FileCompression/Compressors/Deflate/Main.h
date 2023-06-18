@@ -4,11 +4,11 @@
 #include <vector>
 #include <unordered_map>
 #include <list>
-#include "Stream_Reader.h"
+#include "StreamReader.h"
 #include "Window.h"
 #include "Match.h"
 #include "Writer.h"
-#include "Huffman_Tree.h"
+#include "HuffmanTree.h"
 
 typedef unsigned char Byte;
 namespace Deflate
@@ -37,16 +37,16 @@ namespace Deflate
 
         static std::vector<Byte> inflate(std::vector<Byte> data);
 
-        static void Test();
+        static void test();
 
-        static void Test_file(const std::string& file_name, bool verify_compression);
+        static void testFile(const std::string& file_name, bool verify_compression);
 
     private:
         static void
-        SavePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h);
+        savePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h);
 
         static void
-        FindBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist, int& ind,
+        findBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist, int& ind,
                       int size);
 
         struct CompressionInfo
@@ -55,8 +55,8 @@ namespace Deflate
                             int numCodeLengthCodeLengthToWrite,
                             const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
                             const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
-                            const Huffman_Tree::Code* codeLengthCodes, const Deflate::Huffman_Tree::Code* litLenCodes,
-                            const Deflate::Huffman_Tree::Code* distCodes, bool is_last_block, int dynamic_comp_size,
+                            const HuffmanTree::Code* codeLengthCodes, const Deflate::HuffmanTree::Code* litLenCodes,
+                            const Deflate::HuffmanTree::Code* distCodes, bool is_last_block, int dynamic_comp_size,
                             int fixed_comp_size);
 
             virtual ~CompressionInfo();
@@ -68,10 +68,9 @@ namespace Deflate
             const int num_code_length_code_length_to_write;
             const std::vector<std::pair<int, int>>* lit_len_code_lengths_to_write;
             const std::vector<std::pair<int, int>>* dist_code_lengths_to_write;
-            const Deflate::Huffman_Tree::Code* code_length_codes;
-            const Deflate::Huffman_Tree::Code* lit_len_codes;
-            const Deflate::Huffman_Tree::Code* dist_codes;
-            //const std::list<Match>* matches;
+            const Deflate::HuffmanTree::Code* code_length_codes;
+            const Deflate::HuffmanTree::Code* lit_len_codes;
+            const Deflate::HuffmanTree::Code* dist_codes;
             const bool is_last_block;
             const int dynamic_compression_size;
             const int fixed_compression_size;
@@ -86,18 +85,18 @@ namespace Deflate
          * @param offset Data offset.
          * @return compressed_size The size of the compressed data
          */
-        static void deflate_dynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
-                                    const Memory& mem);
+        static void deflateDynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
+                                   const Memory& mem);
 
         /** \brief Computes the number of bits required to encode a given
          * literal/length code with fixed huffman codes. */
-        static int lit_len_fixed_code_length(int lit_len);
+        static int litLenFixedCodeLength(int lit_len);
 
         /** \brief Computes the data necessary to compress a block with dynamic huffman coding, as well as the size of the
          * block compressed with dynamic and fixed codes*/
         static Deflate::Main::CompressionInfo
-        process_block(const Byte* data, int data_size, Writer& writer, const int offset,
-                      Memory& mem);
+        processBlock(const Byte* data, int data_size, Writer& writer, int offset,
+                     Memory& mem);
 
         /** \brief Deflates a block of data using the fixed Huffman codes. <br>
          * <b>This method must be called only when the output size is known and
@@ -107,8 +106,8 @@ namespace Deflate
          * @param compression_info The dynamic compression result
          */
         static void
-        deflate_fixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
-                      const Memory& mem);
+        deflateFixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
+                     const Memory& mem);
 
 
         /** \brief Deflates a block of data using the uncompressed block format. <br>
@@ -121,45 +120,45 @@ namespace Deflate
          * @param writer The writer used to write the compressed data
          */
         static void
-        deflate_uncompressed(const Byte* data, const int offset, Writer& writer,
-                             const CompressionInfo& compression_info);
+        deflateUncompressed(const Byte* data, int offset, Writer& writer,
+                            const CompressionInfo& compression_info);
 
         /** \brief Writes the data of a dynamic block */
         static void
-        write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset, const int size,
-                              const Deflate::Huffman_Tree::Code* lit_len_codes,
-                              const Deflate::Huffman_Tree::Code* distance_codes, const Memory& mem);
+        writeCompressedData(Deflate::Writer& writer, const Byte* data, int offset, int size,
+                            const Deflate::HuffmanTree::Code* lit_len_codes,
+                            const Deflate::HuffmanTree::Code* distance_codes, const Memory& mem);
 
         /** \brief Writes the code lengths of a dynamic block */
         static void
-        write_code_lengths(Deflate::Writer& writer, const std::vector<std::pair<int, int>>& code_lengths,
-                           const Deflate::Huffman_Tree::Code* code_length_codes);
+        writeCodeLengths(Deflate::Writer& writer, const std::vector<std::pair<int, int>>& code_lengths,
+                         const Deflate::HuffmanTree::Code* code_length_codes);
 
         static int
-        enumerate_code_lengths(const int count, const Deflate::Huffman_Tree::Code* codes, const int max_repetition,
-                               std::vector<std::pair<int, int>>& code_lengths_to_write,
-                               Memory& mem);
+        enumerateCodeLengths(int count, const Deflate::HuffmanTree::Code* codes, int max_repetition,
+                             std::vector<std::pair<int, int>>& code_lengths_to_write,
+                             Memory& mem);
 
         /** \brief Builds a tree given the code lengths of the symbols */
-        static Huffman_Tree*
-        code_lengths_to_tree(const int code_lengths[], int num_symbols, int max_length);
+        static HuffmanTree*
+        codeLengthsToTree(const int code_lengths[], int num_symbols, int max_length);
 
         /** \brief Reads the code lengths of a dynamic block */
         static void
-        read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::Huffman_Tree* tree, int num_symbols,
-                          int& max_length,
-                          int code_lengths[]);
+        readCodeLengths(Deflate::StreamReader& reader, const Deflate::HuffmanTree* tree, int num_symbols,
+                        int& max_length,
+                        int code_lengths[]);
 
 
         /** \brief Computes the code of the value range in which the given length is */
-        static int length_to_length_code(int length);
+        static int lengthToLengthCode(int length);
 
         /** \brief Computes the code of the value range in which the given distance is */
-        static int distance_to_distance_code(int distance);
+        static int distanceToDistanceCode(int distance);
 
         static int
-        compute_dynamic_trees(const Byte* data, const int offset, const int size, Huffman_Tree*& lit_len_tree,
-                              Huffman_Tree*& dist_tree, Memory& mem);
+        computeDynamicTrees(const Byte* data, int offset, int size, HuffmanTree*& lit_len_tree,
+                            HuffmanTree*& dist_tree, Memory& mem);
 
         /** \brief Decompresses a block of data
          * @param reader A DEFLATE reader for the compressed data
@@ -168,16 +167,16 @@ namespace Deflate
          * @return A bool indicating whether the block was the last one
          */
         static bool
-        decompress_block(Stream_Reader& reader, Window& window, Writer& writer);
+        decompressBlock(StreamReader& reader, Window& window, Writer& writer);
 
         /** \brief Reads a DEFLATE stored block */
-        static void get_stored_data(Stream_Reader& reader, Writer& writer);
+        static void getStoredData(StreamReader& reader, Writer& writer);
 
         /** \brief Reads a DEFLATE block compressed with fixed Huffman coding */
-        static void get_fixed_huffman_data(Stream_Reader& reader, Window& window, Writer& writer);
+        static void getFixedHuffmanData(StreamReader& reader, Window& window, Writer& writer);
 
         /** \brief Reads a DEFLATE block compressed with dynamic Huffman coding */
-        static void get_dynamic_huffman_data(Stream_Reader& reader, Window& window, Writer& writer);
+        static void getDynamicHuffmanData(StreamReader& reader, Window& window, Writer& writer);
 
         /** \brief Reads compressed data of DEFLATE block compressed with dynamic Huffman coding
          * @param reader A DEFLATE reader for the compressed data
@@ -186,25 +185,25 @@ namespace Deflate
          * @param window The window to use for decompression of the whole file
          * */
         static void
-        read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tree* lit_len_tree,
-                                  const Huffman_Tree* dist_tree,
-                                  Window& window,
-                                  Writer& writer);
+        readDynamicHuffmanData(StreamReader& reader, const HuffmanTree* lit_len_tree,
+                               const HuffmanTree* dist_tree,
+                               Window& window,
+                               Writer& writer);
 
         /** \brief The DEFLATE static Huffman tree */
-        inline static Huffman_Tree* static_huffman_tree_ = nullptr;
+        inline static HuffmanTree* static_huffman_tree_ = nullptr;
 
         /** \brief Computes the DEFLATE fixed Huffman tree */
-        static void build_fixed_huffman_tree();
+        static void buildFixedHuffmanTree();
 
         /** \brief Computes the DEFLATE fixed Huffman codes */
-        static void build_fixed_huffman_lit_len_values_codes();
+        static void buildFixedHuffmanLitLenValuesCodes();
 
         /// \brief Computes codes from code lengths using the <b>algorithm described in RFC 1951 section 3.2.2</b>
-        static int* codes_from_code_lengths(const int code_lengths[], int num_symbols, int max_code_length);
+        static int* codesFromCodeLengths(const int code_lengths[], int num_symbols, int max_code_length);
 
 
-        static inline void update_hash(int& h, Byte c)
+        static inline void updateHash(int& h, Byte c)
         { h = (((h) << hash_shift) ^ (c)) & hash_mask; }
 
         static inline std::unordered_map<int, int> fixed_lit_len_values_codes;

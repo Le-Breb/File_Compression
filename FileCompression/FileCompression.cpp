@@ -64,18 +64,18 @@ std::bitset<N> reverse(const std::bitset<N>& bit_set)
 
 //ToDo: Writing and reading bytes directly from an to file instead of storing them in a char array
 //ToDo: Procedurally check all dates and times
-//Todo: Reorder compute_dynamic_trees
-//Todo: Tester le cas où il y a plus d138 0s à la suite dans enumerate_code_lengths
+//Todo: Reorder computeDynamicTrees
+//Todo: Tester le cas où il y a plus d138 0s à la suite dans enumerateCodeLengths
 //Todo: Benchmark ce commit et le précédent pour voir en quoi celui-ci est plus lent
 //Todo: Faire un buffer pour les codes lenghts code lengths avec une classe dédiée ce qui permettrait de un
 // D'éviter de nomreuses allocations et désallocations mais aussi de ne plus avoir besoin de lit_len_code_lengths_to_write
 // et dist_code_lengths_to_read
 int main(int argc, char* argv[])
 {
-    Deflate::Main::Test_file(
+    Deflate::Main::testFile(
             R"(C:\Users\matmu\Documents\Unity\Projects\project-s2\MuseumLeapInstaller.exe)", true);
 
-    Deflate::Main::Test();
+    Deflate::Main::test();
     return 0;
     ZipFile zip_file;
     zip_file.add_folder("../../FileCompression", "FileCompression");

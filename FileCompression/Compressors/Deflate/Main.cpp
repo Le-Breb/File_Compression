@@ -1,5 +1,5 @@
 ﻿#include "Main.h"
-#include "Huffman_Tree.h"
+#include "HuffmanTree.h"
 #include "Window.h"
 #include "Match.h"
 #include "Writer.h"
@@ -15,20 +15,20 @@
 #include <bitset>
 
 bool
-Deflate::Main::decompress_block(Stream_Reader& reader, Window& window, Writer& writer)
+Deflate::Main::decompressBlock(StreamReader& reader, Window& window, Writer& writer)
 {
-    const bool is_final_block = reader.read_bit();
+    const bool is_final_block = reader.readBit();
 
-    switch (reader.read_number(2))
+    switch (reader.readNumber(2))
     {
         case 0:
-            get_stored_data(reader, writer);
+            getStoredData(reader, writer);
             break;
         case 1:
-            get_fixed_huffman_data(reader, window, writer);
+            getFixedHuffmanData(reader, window, writer);
             break;
         case 2:
-            get_dynamic_huffman_data(reader, window, writer);
+            getDynamicHuffmanData(reader, window, writer);
             break;
         case 3:
             throw std::runtime_error("Reserved block type!");
@@ -39,24 +39,24 @@ Deflate::Main::decompress_block(Stream_Reader& reader, Window& window, Writer& w
     return is_final_block;
 }
 
-void Deflate::Main::get_stored_data(Stream_Reader& reader, Writer& writer)
+void Deflate::Main::getStoredData(StreamReader& reader, Writer& writer)
 {
-    reader.skip_end_of_byte(); // Padding
+    reader.skipEndOfByte(); // Padding
 
     // Read data length
-    const auto len = static_cast<short>(reader.read_number(16));
-    const auto nlen = static_cast<short>(reader.read_number(16));
+    const auto len = static_cast<short>(reader.readNumber(16));
+    const auto nlen = static_cast<short>(reader.readNumber(16));
     if (len != ~nlen)
         throw std::runtime_error("Invalid stored block length!");
 
     // Read data
-    for (const Byte& b : reader.read_bytes_v(len))
+    for (const Byte& b : reader.readBytesV(len))
         writer.write_raw_byte(b);
 }
 
-void Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window, Writer& writer)
+void Deflate::Main::getFixedHuffmanData(StreamReader& reader, Window& window, Writer& writer)
 {
-    int lit_len = static_huffman_tree_->read_key(reader);
+    int lit_len = static_huffman_tree_->readKey(reader);
     while (lit_len != 256)
     {
         // Literal
@@ -70,15 +70,15 @@ void Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window
             // Length
             int len = lit_len_code_to_length[lit_len];
             if (const int extra_bits = lengths_extra_bits[lit_len]) // Extra bits
-                len += reader.read_number(extra_bits);
+                len += reader.readNumber(extra_bits);
 
             // Distance
-            const int dist_value = reader.read_number(5);
+            const int dist_value = reader.readNumber(5);
             /*if (dist_value > 29)
                 throw std::runtime_error("Invalid distance!");*/
             int dist = dist_code_to_dist[dist_value];
             if (const int extra_bits = distances_extra_bits[dist_value]) // Extra bits
-                dist += reader.read_number(extra_bits);
+                dist += reader.readNumber(extra_bits);
 
             // Read match
             for (int i = 0; i < len; ++i)
@@ -92,23 +92,23 @@ void Deflate::Main::get_fixed_huffman_data(Stream_Reader& reader, Window& window
         else
             throw std::runtime_error("Invalid fixed huffman code!");
 
-        lit_len = static_huffman_tree_->read_key(reader);
+        lit_len = static_huffman_tree_->readKey(reader);
     }
 }
 
-void Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& window, Writer& writer)
+void Deflate::Main::getDynamicHuffmanData(StreamReader& reader, Window& window, Writer& writer)
 {
     // Read the number of different codes to read
-    const int num_lit_len = reader.read_number(5) + 257;
-    const int num_dist = reader.read_number(5) + 1;
-    const int num_code_length_code_length = reader.read_number(4) + 4;
+    const int num_lit_len = reader.readNumber(5) + 257;
+    const int num_dist = reader.readNumber(5) + 1;
+    const int num_code_length_code_length = reader.readNumber(4) + 4;
 
     // Read code length code lengths
     int max_code_length_code_length = 0;
     int code_length_code_lengths[19];
     for (int i = 0; i < num_code_length_code_length; ++i)
     {
-        int code_length_code_length = reader.read_number(3);
+        int code_length_code_length = reader.readNumber(3);
         code_length_code_lengths[code_length_codes_order[i]] = code_length_code_length;
         if (code_length_code_length > max_code_length_code_length)
             max_code_length_code_length = code_length_code_length;
@@ -117,26 +117,26 @@ void Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& wind
         code_length_code_lengths[code_length_codes_order[i]] = 0;
 
     // Build code length tree with the lengths of the code length codes
-    Huffman_Tree* code_lengths_tree = code_lengths_to_tree(code_length_code_lengths, 19, max_code_length_code_length);
+    HuffmanTree* code_lengths_tree = codeLengthsToTree(code_length_code_lengths, 19, max_code_length_code_length);
 
     // Read lit_len code lengths
     int lit_len_code_lengths[num_lit_len];
     int max_lit_len_code_length = 0;
-    read_code_lengths(reader, code_lengths_tree, num_lit_len, max_lit_len_code_length, lit_len_code_lengths);
+    readCodeLengths(reader, code_lengths_tree, num_lit_len, max_lit_len_code_length, lit_len_code_lengths);
 
     // Build lit_len tree with the code lengths
-    Huffman_Tree* lit_len_tree = code_lengths_to_tree(lit_len_code_lengths, num_lit_len, max_lit_len_code_length);
+    HuffmanTree* lit_len_tree = codeLengthsToTree(lit_len_code_lengths, num_lit_len, max_lit_len_code_length);
 
     // Read dist code lengths
     int dist_code_lengths[num_dist];
     int max_dist_code_length = 0;
-    read_code_lengths(reader, code_lengths_tree, num_dist, max_dist_code_length, dist_code_lengths);
+    readCodeLengths(reader, code_lengths_tree, num_dist, max_dist_code_length, dist_code_lengths);
 
     // Build dist tree with the code lengths
-    Huffman_Tree* dist_tree = code_lengths_to_tree(dist_code_lengths, num_dist, max_dist_code_length);
+    HuffmanTree* dist_tree = codeLengthsToTree(dist_code_lengths, num_dist, max_dist_code_length);
 
     // Read the data
-    read_dynamic_huffman_data(reader, lit_len_tree, dist_tree, window, writer);
+    readDynamicHuffmanData(reader, lit_len_tree, dist_tree, window, writer);
 
     // Free memory
     delete lit_len_tree;
@@ -144,9 +144,9 @@ void Deflate::Main::get_dynamic_huffman_data(Stream_Reader& reader, Window& wind
     delete code_lengths_tree;
 }
 
-void Deflate::Main::build_fixed_huffman_tree()
+void Deflate::Main::buildFixedHuffmanTree()
 {
-    auto* keys_paths = new Deflate::Huffman_Tree::Code[288];
+    auto* keys_paths = new Deflate::HuffmanTree::Code[288];
     int c = 0;
     for (int i = 0b00110000; i <= 0b10111111; i++)
         keys_paths[c++] = {i, 8};
@@ -157,14 +157,14 @@ void Deflate::Main::build_fixed_huffman_tree()
     for (int i = 0b11000000; i <= 0b11000111; i++)
         keys_paths[c++] = {i, 8};
 
-    static_huffman_tree_ = new Huffman_Tree(keys_paths, 288);
+    static_huffman_tree_ = new HuffmanTree(keys_paths, 288);
 }
 
 std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
 {
     // Build fixed huffman lit len values codes if not done yet
     if (fixed_lit_len_values_codes.empty())
-        build_fixed_huffman_lit_len_values_codes();
+        buildFixedHuffmanLitLenValuesCodes();
 
     int ind = 0;
     std::vector<Byte> compressed_data;
@@ -174,7 +174,7 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
     while (ind < size)
     {
         // Compute dynamic compression data
-        const CompressionInfo compression_info = process_block(data, size, writer, ind, mem);
+        const CompressionInfo compression_info = processBlock(data, size, writer, ind, mem);
         // Compute compressed size with dynamic and fixed codes
 
         // Select best compression mode
@@ -184,37 +184,37 @@ std::vector<Byte> Deflate::Main::deflate(const Byte* data, int size)
         {
             // Use fixed codes if they are smaller than the uncompressed data
             if (compression_info.fixed_compression_size >= compression_info.uncompressed_size)
-                deflate_uncompressed(data, ind, writer, compression_info);
+                deflateUncompressed(data, ind, writer, compression_info);
 
             else // No compression if both static and dynamic do not reduce the size
-                deflate_fixed(data, writer, compression_info, mem);
+                deflateFixed(data, writer, compression_info, mem);
         }
 
         else
-            deflate_dynamic(compression_info, writer, data, mem);
+            deflateDynamic(compression_info, writer, data, mem);
 
         ind += compression_info.uncompressed_size;
-        mem.Clean();
+        mem.clean();
     }
 
     writer.close(); // Close the writer to write the last byte
     return compressed_data;
 }
 
-std::vector<Byte> Deflate::Main::inflate(const std::vector<Byte> data)
+std::vector<Byte> Deflate::Main::inflate(std::vector<Byte> data)
 {
     // Build static huffman data if not done yet
     if (static_huffman_tree_ == nullptr)
-        build_fixed_huffman_tree();
+        buildFixedHuffmanTree();
     try
     {
         std::vector<Byte> inflated_data;
         Writer writer(&inflated_data);
-        Stream_Reader reader(&data);
+        StreamReader reader(&data);
         Window window{};
         do
         {
-        } while (!decompress_block(reader, window, writer)); // Decompress blocks until the last block is reached
+        } while (!decompressBlock(reader, window, writer)); // Decompress blocks until the last block is reached
 
         return inflated_data;
     }
@@ -225,8 +225,8 @@ std::vector<Byte> Deflate::Main::inflate(const std::vector<Byte> data)
     }
 }
 
-int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int num_symbols,
-                                            const int max_code_length)
+int* Deflate::Main::codesFromCodeLengths(const int code_lengths[], const int num_symbols,
+                                         const int max_code_length)
 {
     // Compute number of codes for each code length
     /// \brief bl_count[i] contains the number of codes of length i
@@ -262,12 +262,12 @@ int* Deflate::Main::codes_from_code_lengths(const int code_lengths[], const int 
 }
 
 void
-Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tree* lit_len_tree,
-                                         const Huffman_Tree* dist_tree,
-                                         Window& window,
-                                         Writer& writer)
+Deflate::Main::readDynamicHuffmanData(StreamReader& reader, const HuffmanTree* lit_len_tree,
+                                      const HuffmanTree* dist_tree,
+                                      Window& window,
+                                      Writer& writer)
 {
-    int lit_len = lit_len_tree->read_key(reader);
+    int lit_len = lit_len_tree->readKey(reader);
     while (lit_len != 256)
     {
         // Literal
@@ -280,15 +280,15 @@ Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tr
         {
             int len = lit_len_code_to_length[lit_len];
             if (const int extra_bits = lengths_extra_bits[lit_len])
-                len += reader.read_number(extra_bits);
+                len += reader.readNumber(extra_bits);
 
             // Distance
-            const int dist_value = dist_tree->read_key(reader);
+            const int dist_value = dist_tree->readKey(reader);
             /*if (dist_value > 29)
                 throw std::runtime_error("Invalid distance!");*/
             int dist = dist_code_to_dist[dist_value];
             if (const int extra_bits = distances_extra_bits[dist_value])
-                dist += reader.read_number(extra_bits);
+                dist += reader.readNumber(extra_bits);
 
             // Read match
             for (int i = 0; i < len; ++i)
@@ -301,13 +301,13 @@ Deflate::Main::read_dynamic_huffman_data(Stream_Reader& reader, const Huffman_Tr
         else
             throw std::runtime_error("Invalid dynamic huffman code!");
 
-        lit_len = lit_len_tree->read_key(reader);
+        lit_len = lit_len_tree->readKey(reader);
     }
 }
 
 int
-Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const int size, Huffman_Tree*& lit_len_tree,
-                                     Huffman_Tree*& dist_tree, Memory& mem)
+Deflate::Main::computeDynamicTrees(const Byte* data, const int offset, const int size, HuffmanTree*& lit_len_tree,
+                                   HuffmanTree*& dist_tree, Memory& mem)
 {
     bool matchOnPreviousByte = false;
     int ind = offset;
@@ -318,12 +318,12 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
     int prev_match_len = 2;
     int prev_match_dist = 0;
 
-    update_hash(h, data[ind + 1]); // Update hash of first two bytes
+    updateHash(h, data[ind + 1]); // Update hash of first two bytes
 
     // Find matches
     while (ind < size - 2 && mem.num_symbols < MAX_SYMBOLS_PER_BLOCK)
     {
-        update_hash(h, data[ind + 2]); // Compute new hash
+        updateHash(h, data[ind + 2]); // Compute new hash
         bool match = mem.head[h] > 0 && (ind - mem.head[h] <= 32768 && data[ind] == data[mem.head[h]] &&
                                          data[ind + 1] == data[mem.head[h] + 1] &&
                                          data[ind + 2] == data[mem.head[h] + 2]);
@@ -339,13 +339,13 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
             int best_match_dist = 0;
             int best_match = mem.prev[ind & window_mask];
 
-            FindBestMatch(data, mem, best_len, best_match, best_match_dist, ind, size);
+            findBestMatch(data, mem, best_len, best_match, best_match_dist, ind, size);
 
             if (matchOnPreviousByte)
             {
                 if (best_len <= prev_match_len) // Add the previous and better match
                 {
-                    SavePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
+                    savePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
                     best_len = 2;
                 }
                 else // Add the previous match as a literal
@@ -371,7 +371,7 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
         else
         {
             if (matchOnPreviousByte) // Add the previous match
-                SavePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
+                savePreviousMatch(prev_match, prev_match_len, prev_match_dist, data, ind, mem, h);
             else
             {
                 // Add the current byte as a literal
@@ -388,8 +388,8 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
     {
         if (mem.num_symbols < MAX_SYMBOLS_PER_BLOCK) // Add the last match
         {
-            const int length_code = length_to_length_code(prev_match_len);
-            const int dist_code = distance_to_distance_code(prev_match_dist);
+            const int length_code = lengthToLengthCode(prev_match_len);
+            const int dist_code = distanceToDistanceCode(prev_match_dist);
 
             mem.lit_len_frequency_table[length_code]++;
             mem.dist_frequency_table[dist_code]++;
@@ -429,13 +429,13 @@ Deflate::Main::compute_dynamic_trees(const Byte* data, const int offset, const i
     }
 
     // Build the Huffman trees
-    lit_len_tree = new Huffman_Tree(mem.lit_len_frequency_table, 286);
-    dist_tree = new Huffman_Tree(mem.dist_frequency_table, 30);
+    lit_len_tree = new HuffmanTree(mem.lit_len_frequency_table, 286);
+    dist_tree = new HuffmanTree(mem.dist_frequency_table, 30);
 
     return ind - offset;
 }
 
-int Deflate::Main::length_to_length_code(const int length)
+int Deflate::Main::lengthToLengthCode(const int length)
 {
     int prev = 257;
     for (const auto& [len, code] : length_codes)
@@ -447,7 +447,7 @@ int Deflate::Main::length_to_length_code(const int length)
     return prev; // 285
 }
 
-int Deflate::Main::distance_to_distance_code(const int distance)
+int Deflate::Main::distanceToDistanceCode(const int distance)
 {
     int prev = 1;
     for (const auto& [dist, code] : dist_codes)
@@ -474,7 +474,7 @@ std::string beautiful_size_display(const std::vector<Byte>::size_type size_in_by
     return size;
 }
 
-void Deflate::Main::Test()
+void Deflate::Main::test()
 {
     std::cout << "Testing Calgary Corpus\n";
     std::cout << std::left << std::setw(20) << "File" << std::setw(15) << "Original" << std::setw(15) << "Compressed"
@@ -529,23 +529,23 @@ void Deflate::Main::Test()
     }
 }
 
-Deflate::Huffman_Tree*
-Deflate::Main::code_lengths_to_tree(const int code_lengths[], const int num_symbols, const int max_length)
+Deflate::HuffmanTree*
+Deflate::Main::codeLengthsToTree(const int code_lengths[], const int num_symbols, const int max_length)
 {
     // Build the code length keys paths
-    int* codes = codes_from_code_lengths(code_lengths, num_symbols, max_length);
-    auto* code_length_keys_paths = new Deflate::Huffman_Tree::Code[num_symbols];
+    int* codes = codesFromCodeLengths(code_lengths, num_symbols, max_length);
+    auto* code_length_keys_paths = new Deflate::HuffmanTree::Code[num_symbols];
     for (int i = 0; i < num_symbols; ++i)
     {
         code_length_keys_paths[i] =
-                codes[i] == -1 ? Deflate::Huffman_Tree::Code(0, 0) : Deflate::Huffman_Tree::Code(codes[i],
-                                                                                                 code_lengths[i]);
+                codes[i] == -1 ? Deflate::HuffmanTree::Code(0, 0) : Deflate::HuffmanTree::Code(codes[i],
+                                                                                               code_lengths[i]);
     }
 
     // Build the tree
-    auto* tree = new Huffman_Tree(code_length_keys_paths, num_symbols);
+    auto* tree = new HuffmanTree(code_length_keys_paths, num_symbols);
 
-    // Clean up
+    // clean up
     delete codes;
     delete[] code_length_keys_paths;
 
@@ -553,33 +553,33 @@ Deflate::Main::code_lengths_to_tree(const int code_lengths[], const int num_symb
 }
 
 void
-Deflate::Main::read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::Huffman_Tree* tree,
-                                 const int num_symbols,
-                                 int& max_length, int code_lengths[])
+Deflate::Main::readCodeLengths(Deflate::StreamReader& reader, const Deflate::HuffmanTree* tree,
+                               int num_symbols,
+                               int& max_length, int code_lengths[])
 {
     int read_codes = 0;
     while (read_codes < num_symbols)
     {
-        const int code = tree->read_key(reader);
+        const int code = tree->readKey(reader);
         switch (code)
         {
             case 16: // Repeat last code 3-6 times
             {
-                const int repeat = reader.read_number(2) + 3;
+                const int repeat = reader.readNumber(2) + 3;
                 for (int i = 0; i < repeat; ++i)
                     code_lengths[read_codes++] = code_lengths[read_codes - 1];
                 break;
             }
             case 17: // Repeat 0 3-10 times
             {
-                const int repeat = reader.read_number(3) + 3;
+                const int repeat = reader.readNumber(3) + 3;
                 for (int i = 0; i < repeat; ++i)
                     code_lengths[read_codes++] = 0;
                 break;
             }
             case 18: // Repeat 0 11-138 times
             {
-                const int repeat = reader.read_number(7) + 11;
+                const int repeat = reader.readNumber(7) + 11;
                 for (int i = 0; i < repeat; ++i)
                     code_lengths[read_codes++] = 0;
                 break;
@@ -597,10 +597,10 @@ Deflate::Main::read_code_lengths(Deflate::Stream_Reader& reader, const Deflate::
     }
 }
 
-int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffman_Tree::Code* codes,
-                                          const int max_repetition,
-                                          std::vector<std::pair<int, int>>& code_lengths_to_write,
-                                          Memory& mem)
+int Deflate::Main::enumerateCodeLengths(const int count, const Deflate::HuffmanTree::Code* codes,
+                                        const int max_repetition,
+                                        std::vector<std::pair<int, int>>& code_lengths_to_write,
+                                        Memory& mem)
 {
     int j = 0;
     while (j < count)
@@ -663,8 +663,8 @@ int Deflate::Main::enumerate_code_lengths(const int count, const Deflate::Huffma
     return j;
 }
 
-void Deflate::Main::write_code_lengths(Deflate::Writer& writer, const std::vector<std::pair<int, int>>& code_lengths,
-                                       const Deflate::Huffman_Tree::Code* code_length_codes)
+void Deflate::Main::writeCodeLengths(Deflate::Writer& writer, const std::vector<std::pair<int, int>>& code_lengths,
+                                     const Deflate::HuffmanTree::Code* code_length_codes)
 {
     for (const auto& [code_length, extra_bits_val] : code_lengths)
     {
@@ -687,9 +687,9 @@ void Deflate::Main::write_code_lengths(Deflate::Writer& writer, const std::vecto
     }
 }
 
-void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* data, const int offset, const int size,
-                                          const Deflate::Huffman_Tree::Code* lit_len_codes,
-                                          const Deflate::Huffman_Tree::Code* distance_codes, const Memory& mem)
+void Deflate::Main::writeCompressedData(Deflate::Writer& writer, const Byte* data, const int offset, const int size,
+                                        const Deflate::HuffmanTree::Code* lit_len_codes,
+                                        const Deflate::HuffmanTree::Code* distance_codes, const Memory& mem)
 {
     for (int i = 0; i < mem.num_symbols; ++i)
     {
@@ -722,7 +722,7 @@ void Deflate::Main::write_compressed_data(Deflate::Writer& writer, const Byte* d
     }
 }
 
-void Deflate::Main::Test_file(const std::string& file_name, const bool verify_compression = false)
+void Deflate::Main::testFile(const std::string& file_name, bool verify_compression = false)
 {
     std::ifstream file(file_name, std::ios::in | std::ios::binary | std::ios::ate);
     std::streampos size = file.tellg();
@@ -785,36 +785,36 @@ void Deflate::Main::Test_file(const std::string& file_name, const bool verify_co
 }
 
 Deflate::Main::CompressionInfo
-Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, const int offset,
-                             Memory& mem)
+Deflate::Main::processBlock(const Byte* data, int data_size, Writer& writer, const int offset,
+                            Memory& mem)
 {
     int ind = offset;
     int dynamic_compression_size = 1 + 2 + 10 + 4; // BFINAL BTYPE HLIT HDIST HCLEN
     int fixed_compression_size = 3; // BFINAL BTYPE
 
     // Compute the dynamic trees by finding the matches
-    Huffman_Tree* lit_len_tree;
-    Huffman_Tree* dist_tree;
-    int uncompressed_block_size = compute_dynamic_trees(data, ind, data_size, lit_len_tree, dist_tree,
-                                                        mem);
+    HuffmanTree* lit_len_tree;
+    HuffmanTree* dist_tree;
+    int uncompressed_block_size = computeDynamicTrees(data, ind, data_size, lit_len_tree, dist_tree,
+                                                      mem);
 
     // Compute canonical codes
-    Deflate::Huffman_Tree::Code* lit_len_codes = lit_len_tree->canonical_codes(286, MAX_CODE_LENGTH);
-    Deflate::Huffman_Tree::Code* distance_codes = dist_tree->canonical_codes(30, MAX_CODE_LENGTH);
+    Deflate::HuffmanTree::Code* lit_len_codes = lit_len_tree->canonicalCodes(286, MAX_CODE_LENGTH);
+    Deflate::HuffmanTree::Code* distance_codes = dist_tree->canonicalCodes(30, MAX_CODE_LENGTH);
 
 
     // Compute lit/len + beginning of code length frequency table
     auto* lit_len_code_lengths_to_write = new std::vector<std::pair<int, int>>();
-    const int provided_lit_len = enumerate_code_lengths(286, lit_len_codes, 138, *lit_len_code_lengths_to_write, mem);
+    const int provided_lit_len = enumerateCodeLengths(286, lit_len_codes, 138, *lit_len_code_lengths_to_write, mem);
 
     // Compute distance + end of code length frequency table
     auto* dist_code_lengths_to_write = new std::vector<std::pair<int, int>>();
-    const int provided_dist_codes = enumerate_code_lengths(30, distance_codes, 30,
-                                                           *dist_code_lengths_to_write, mem);
+    const int provided_dist_codes = enumerateCodeLengths(30, distance_codes, 30,
+                                                         *dist_code_lengths_to_write, mem);
 
     // Code length code lengths
-    Huffman_Tree code_lengths_tree(mem.code_lengths_frequency_table, 19);
-    Deflate::Huffman_Tree::Code* code_length_codes = code_lengths_tree.canonical_codes(19, MAX_CODE_LENGTH_CODE_LENGTH);
+    HuffmanTree code_lengths_tree(mem.code_lengths_frequency_table, 19);
+    Deflate::HuffmanTree::Code* code_length_codes = code_lengths_tree.canonicalCodes(19, MAX_CODE_LENGTH_CODE_LENGTH);
 
 
     // Determine the number of code length code lengths to write
@@ -858,7 +858,7 @@ Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, co
         {
             // Add the size of the literal
             dynamic_compression_size += lit_len_codes[m->val()].length;
-            fixed_compression_size += lit_len_fixed_code_length(m->val());
+            fixed_compression_size += litLenFixedCodeLength(m->val());
         }
         else
         {
@@ -873,7 +873,7 @@ Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, co
             dynamic_compression_size += distances_extra_bits[dist_code];
 
             // Fixed
-            fixed_compression_size += lit_len_fixed_code_length(length_code); // Length code length
+            fixed_compression_size += litLenFixedCodeLength(length_code); // Length code length
             fixed_compression_size += lengths_extra_bits[length_code]; // Length extra bits
             fixed_compression_size += 5; // Distance code length
             fixed_compression_size += distances_extra_bits[dist_code]; // Distance extra bits
@@ -882,7 +882,7 @@ Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, co
 
     // Add the size of the end of block
     dynamic_compression_size += lit_len_codes[256].length;
-    fixed_compression_size += lit_len_fixed_code_length(256);
+    fixed_compression_size += litLenFixedCodeLength(256);
 
     // Divide by 8 to get the number of bytes
     dynamic_compression_size /= 8;
@@ -903,8 +903,8 @@ Deflate::Main::process_block(const Byte* data, int data_size, Writer& writer, co
 }
 
 void
-Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
-                             const Memory& mem)
+Deflate::Main::deflateFixed(const Byte* data, Deflate::Writer& writer, const CompressionInfo& compression_info,
+                            const Memory& mem)
 {
     // Avoid reallocation
     writer.data->reserve(writer.data->size() + compression_info.fixed_compression_size);
@@ -917,7 +917,7 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const Co
         const Match* m = &mem.symbols[i];
 
         if (m->length() == 0)
-            writer.write_code(fixed_lit_len_values_codes[m->val()], lit_len_fixed_code_length(m->val()));
+            writer.write_code(fixed_lit_len_values_codes[m->val()], litLenFixedCodeLength(m->val()));
         else
         {
             const int length = m->length();
@@ -927,7 +927,7 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const Co
 
             // Length
             writer.write_code(fixed_lit_len_values_codes[length_code],
-                              lit_len_fixed_code_length(length_code)); // Length code
+                              litLenFixedCodeLength(length_code)); // Length code
             writer.write_number(length - lit_len_code_to_length[length_code],
                                 lengths_extra_bits[length_code]); // Length extra
             // Distance
@@ -937,12 +937,12 @@ Deflate::Main::deflate_fixed(const Byte* data, Deflate::Writer& writer, const Co
         }
     }
 
-    writer.write_code(fixed_lit_len_values_codes[256], lit_len_fixed_code_length(256)); // End of block
+    writer.write_code(fixed_lit_len_values_codes[256], litLenFixedCodeLength(256)); // End of block
 }
 
 void
-Deflate::Main::deflate_uncompressed(const Byte* data, const int offset, Writer& writer,
-                                    const CompressionInfo& compression_info)
+Deflate::Main::deflateUncompressed(const Byte* data, const int offset, Writer& writer,
+                                   const CompressionInfo& compression_info)
 {
     // Avoid reallocation
     writer.data->reserve(writer.data->size() + compression_info.uncompressed_size);
@@ -960,7 +960,7 @@ Deflate::Main::deflate_uncompressed(const Byte* data, const int offset, Writer& 
         writer.write_raw_byte(data[offset + i]);
 }
 
-int Deflate::Main::lit_len_fixed_code_length(const int lit_len)
+int Deflate::Main::litLenFixedCodeLength(const int lit_len)
 {
     if (lit_len <= 143 || lit_len >= 280) // 0-143 & 280-287
         return 8;
@@ -972,8 +972,8 @@ int Deflate::Main::lit_len_fixed_code_length(const int lit_len)
     throw std::runtime_error("Invalid literal/length");
 }
 
-void Deflate::Main::deflate_dynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
-                                    const Memory& mem)
+void Deflate::Main::deflateDynamic(const CompressionInfo& compression_info, Deflate::Writer& writer, const Byte* data,
+                                   const Memory& mem)
 {
     // Avoid reallocation
     writer.data->reserve(writer.data->size() + compression_info.dynamic_compression_size);
@@ -989,23 +989,23 @@ void Deflate::Main::deflate_dynamic(const CompressionInfo& compression_info, Def
         writer.write_number(compression_info.code_length_codes[code_length_codes_order[k]].length, 3);
 
     // Write lit/len code lengths
-    write_code_lengths(writer, *compression_info.lit_len_code_lengths_to_write,
-                       compression_info.code_length_codes);
+    writeCodeLengths(writer, *compression_info.lit_len_code_lengths_to_write,
+                     compression_info.code_length_codes);
     // Write distance code lengths
-    write_code_lengths(writer, *compression_info.dist_code_lengths_to_write,
-                       compression_info.code_length_codes);
+    writeCodeLengths(writer, *compression_info.dist_code_lengths_to_write,
+                     compression_info.code_length_codes);
 
     // Write the compressed data
-    write_compressed_data(writer, data, compression_info.offset, compression_info.uncompressed_size,
-                          compression_info.lit_len_codes,
-                          compression_info.dist_codes, mem);
+    writeCompressedData(writer, data, compression_info.offset, compression_info.uncompressed_size,
+                        compression_info.lit_len_codes,
+                        compression_info.dist_codes, mem);
 
     // Write end of block
     writer.write_code(compression_info.lit_len_codes[256].code,
                       compression_info.lit_len_codes[256].length);
 }
 
-void Deflate::Main::build_fixed_huffman_lit_len_values_codes()
+void Deflate::Main::buildFixedHuffmanLitLenValuesCodes()
 {
     int c = 0;
     for (int i = 0b00110000; i <= 0b10111111; i++)
@@ -1019,7 +1019,7 @@ void Deflate::Main::build_fixed_huffman_lit_len_values_codes()
 }
 
 void
-Deflate::Main::FindBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist,
+Deflate::Main::findBestMatch(const Byte* data, const Memory& mem, int& best_len, int& best_match, int& best_dist,
                              int& ind, int size)
 {
     int curr_match = best_match;
@@ -1069,10 +1069,10 @@ Deflate::Main::FindBestMatch(const Byte* data, const Memory& mem, int& best_len,
 }
 
 void
-Deflate::Main::SavePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h)
+Deflate::Main::savePreviousMatch(int match, int len, int dist, const Byte* data, int& ind, Deflate::Memory& mem, int& h)
 {
-    const int prev_length_code = length_to_length_code(len);
-    const int prev_dist_code = distance_to_distance_code(dist);
+    const int prev_length_code = lengthToLengthCode(len);
+    const int prev_dist_code = distanceToDistanceCode(dist);
 
     mem.lit_len_frequency_table[prev_length_code]++;
     mem.dist_frequency_table[prev_dist_code]++;
@@ -1083,7 +1083,7 @@ Deflate::Main::SavePreviousMatch(int match, int len, int dist, const Byte* data,
     for (int i = 0; i < len - 2; ++i)
     {
         ind++;
-        update_hash(h, data[ind + 2]);
+        updateHash(h, data[ind + 2]);
         mem.prev[ind & window_mask] = mem.head[h];
         mem.head[h] = ind;
     }
@@ -1095,9 +1095,9 @@ Deflate::Main::CompressionInfo::CompressionInfo(int offset, int uncompressedSize
                                                 int numCodeLengthCodeLengthToWrite,
                                                 const std::vector<std::pair<int, int>>* litLenCodeLengthsToWrite,
                                                 const std::vector<std::pair<int, int>>* distCodeLengthsToWrite,
-                                                const Huffman_Tree::Code* codeLengthCodes,
-                                                const Deflate::Huffman_Tree::Code* litLenCodes,
-                                                const Deflate::Huffman_Tree::Code* distCodes, bool is_last_block,
+                                                const HuffmanTree::Code* codeLengthCodes,
+                                                const Deflate::HuffmanTree::Code* litLenCodes,
+                                                const Deflate::HuffmanTree::Code* distCodes, bool is_last_block,
                                                 const int dynamic_compression_size, const int fixed_compression_size)
         : offset(offset),
           uncompressed_size(

@@ -1,4 +1,4 @@
-﻿#include "Huffman_Tree.h"
+﻿#include "HuffmanTree.h"
 #include <iostream>
 #include <queue>
 #include <algorithm>
@@ -31,8 +31,8 @@
     root_ = q.top().second;
 }*/
 
-void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, // NOLINT(misc-no-recursion)
-                                const int path_length)
+void Deflate::HuffmanTree::add(Node* node, const int key, const int path, // NOLINT(misc-no-recursion)
+                               const int path_length)
 {
     if (!path_length)
     {
@@ -53,12 +53,12 @@ void Deflate::Huffman_Tree::add(Node* node, const int key, const int path, // NO
     }
 }
 
-int Deflate::Huffman_Tree::read_key(Stream_Reader& reader) const
+int Deflate::HuffmanTree::readKey(StreamReader& reader) const
 {
     const Node* current = root_;
     while (current->key == -1)
     {
-        if (reader.read_bit())
+        if (reader.readBit())
             current = current->right;
         else
             current = current->left;
@@ -67,14 +67,14 @@ int Deflate::Huffman_Tree::read_key(Stream_Reader& reader) const
     return current->key;
 }
 
-std::ostream& Deflate::operator<<(std::ostream& os, const Deflate::Huffman_Tree& huffman_tree)
+std::ostream& Deflate::operator<<(std::ostream& os, const Deflate::HuffmanTree& huffman_tree)
 {
     os << huffman_tree.root_;
 
     return os;
 }
 
-std::map<int, std::vector<int>> Deflate::Huffman_Tree::symbols_per_code_length() const
+std::map<int, std::vector<int>> Deflate::HuffmanTree::symbols_per_code_length() const
 {
     std::map<int, std::vector<int>> res;
     Node* n = root_;
@@ -98,10 +98,10 @@ std::map<int, std::vector<int>> Deflate::Huffman_Tree::symbols_per_code_length()
     return res;
 }
 
-Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int num_codes, const int max_bit_length) const
+Deflate::HuffmanTree::Code* Deflate::HuffmanTree::canonicalCodes(const int num_codes, const int max_bit_length) const
 {
     std::map<int, std::vector<int>> symbols_per_bit_len = symbols_per_code_length();
-    
+
     // Reorganize the symbols_per_bit_len so that the max bit length is max_bit_length
     int overflow;
     do
@@ -160,7 +160,7 @@ Deflate::Huffman_Tree::Code* Deflate::Huffman_Tree::canonical_codes(const int nu
     return res;
 }
 
-Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
+Deflate::HuffmanTree::HuffmanTree(const int* frequency_table, const int size)
 {
     bool uniqueElement = true;
     int first_element_index = -1;
@@ -206,7 +206,7 @@ Deflate::Huffman_Tree::Huffman_Tree(const int* frequency_table, const int size)
     root_ = q.top().second;
 }
 
-Deflate::Huffman_Tree::Huffman_Tree(const Deflate::Huffman_Tree::Code* codes, int num_codes)
+Deflate::HuffmanTree::HuffmanTree(const Deflate::HuffmanTree::Code* codes, int num_codes)
 {
     root_ = new Node(-1, nullptr, nullptr);
 
